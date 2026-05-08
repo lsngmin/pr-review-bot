@@ -1,4 +1,4 @@
-package com.yourname.bot
+package com.pbot.bot
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
