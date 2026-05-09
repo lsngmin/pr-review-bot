@@ -20,17 +20,18 @@ class ReviewService(
     @Async
     fun reviewPullRequest(repo: String, number: Int) {
         val headSha = gitHubClient.fetchPullRequestHeadSha(repo, number)
-        val files = gitHubClient.fetchFiles(repo, number).take(maxFiles)
+        val allFiles = gitHubClient.fetchFiles(repo, number)         // 검증용: 전체
+        val filesForLlm = allFiles.take(maxFiles)                     // LLM 입력용: 잘림 (토큰 보호)
 
-        val context = files.joinToString("\n\n") { file ->
+        val context = filesForLlm.joinToString("\n\n") { file ->
             buildFileContext(repo, headSha, file)
         }
         val result = llmPort.review(context)
 
-        val (validIssues, droppedIssues) = result.issues.partition { isLineInDiff(it, files) }
+        // 검증은 전체 파일 기준 — LLM이 maxFiles 밖 파일을 짚어도 유효하면 통과
+        val (validIssues, droppedIssues) = result.issues.partition { isLineInDiff(it, allFiles) }
         val comments = validIssues.map { issue ->
-            // GPT가 짧게 준 path를 PR의 실제 path로 보정
-            val actualPath = matchFile(issue.path, files)?.path ?: issue.path
+            val actualPath = matchFile(issue.path, allFiles)?.path ?: issue.path
             ReviewComment(path = actualPath, line = issue.line, body = issue.comment)
         }
         val summary = mergeDroppedIntoSummary(result.summary, droppedIssues)
