@@ -77,4 +77,39 @@ class CommandDetectorTest {
     fun `does not trigger on empty comment`() {
         assertThat(CommandDetector.shouldTrigger("", botMention)).isFalse()
     }
+
+    // --- shouldVerify ---
+
+    @Test
+    fun `verify triggers on slash verify`() {
+        assertThat(CommandDetector.shouldVerify("/verify", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify triggers on mention with verify keyword`() {
+        assertThat(CommandDetector.shouldVerify("@pawranoid verify", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify case-insensitive`() {
+        assertThat(CommandDetector.shouldVerify("@Pawranoid Verify", botMention)).isTrue()
+        assertThat(CommandDetector.shouldVerify("/VERIFY", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify mention with sentence after`() {
+        assertThat(CommandDetector.shouldVerify("@pawranoid verify this please", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify does not trigger on plain mention without verify keyword`() {
+        // 그냥 @pawranoid 만 있으면 verify 아니라 review 트리거가 됨
+        assertThat(CommandDetector.shouldVerify("@pawranoid", botMention)).isFalse()
+        assertThat(CommandDetector.shouldVerify("@pawranoid review", botMention)).isFalse()
+    }
+
+    @Test
+    fun `verify does not trigger on similar bot name`() {
+        assertThat(CommandDetector.shouldVerify("@pawranoid-staging verify", botMention)).isFalse()
+    }
 }
