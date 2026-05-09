@@ -22,22 +22,36 @@ class GitHubAuthService(
     @Value("\${github.app.private-key-path}") val privateKeyPath: String,
 ) {
     private val rest = RestClient.create()
-    private var cachedToken: String? = null
-    private var tokenExpiresAt: Instant = Instant.EPOCH
+    private val tokenLock = Any()
+
+    @Volatile private var cachedToken: String? = null
+    @Volatile private var tokenExpiresAt: Instant = Instant.EPOCH
 
     /**
      * 외부에서 호출하는 메서드.
      * 캐시된 토큰이 유효하면 그대로, 만료 임박이면 갱신해서 반환.
+     *
+     * @Async로 인해 여러 스레드가 동시에 접근할 수 있어 동기화 필수.
+     * Double-checked locking 패턴: 빠른 경로(이미 유효)는 lock 없이 통과,
+     * 갱신 필요 시에만 동기화하여 중복 refreshToken() 호출 방지.
      */
     fun getInstallationToken(): String {
-        if (Instant.now().isAfter(tokenExpiresAt.minusSeconds(60))) {
-            refreshToken()
+        val current = cachedToken
+        if (current != null && Instant.now().isBefore(tokenExpiresAt.minusSeconds(60))) {
+            return current
         }
-        return cachedToken!!
+        return synchronized(tokenLock) {
+            // lock 진입 후 다시 체크 (다른 스레드가 이미 갱신했을 수 있음)
+            if (cachedToken == null || Instant.now().isAfter(tokenExpiresAt.minusSeconds(60))) {
+                refreshToken()
+            }
+            cachedToken!!
+        }
     }
 
     /**
      * JWT로 GitHub에 요청해서 새 Installation Token 받아 캐싱.
+     * 호출자가 이미 tokenLock을 잡고 있다고 가정.
      */
     private fun refreshToken() {
         val jwt = createAppJwt()

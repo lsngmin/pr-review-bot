@@ -20,17 +20,21 @@ class ReviewService(
     @Async
     fun reviewPullRequest(repo: String, number: Int) {
         val headSha = gitHubClient.fetchPullRequestHeadSha(repo, number)
-        val files = gitHubClient.fetchFiles(repo, number).take(maxFiles)
+        val allFiles = gitHubClient.fetchFiles(repo, number)
+        val filesForLlm = allFiles.take(maxFiles)
+        if (allFiles.size > maxFiles) {
+            println("WARN: PR $repo#$number has ${allFiles.size} files, only first $maxFiles sent to LLM")
+        }
 
-        val context = files.joinToString("\n\n") { file ->
+        val context = filesForLlm.joinToString("\n\n") { file ->
             buildFileContext(repo, headSha, file)
         }
         val result = llmPort.review(context)
 
-        val (validIssues, droppedIssues) = result.issues.partition { isLineInDiff(it, files) }
+        // 검증은 LLM이 실제로 본 파일만 — maxFiles 밖 파일 언급은 hallucination으로 간주.
+        val (validIssues, droppedIssues) = result.issues.partition { isLineInDiff(it, filesForLlm) }
         val comments = validIssues.map { issue ->
-            // GPT가 짧게 준 path를 PR의 실제 path로 보정
-            val actualPath = matchFile(issue.path, files)?.path ?: issue.path
+            val actualPath = matchFile(issue.path, filesForLlm)?.path ?: issue.path
             ReviewComment(path = actualPath, line = issue.line, body = issue.comment)
         }
         val summary = mergeDroppedIntoSummary(result.summary, droppedIssues)
