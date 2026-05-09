@@ -4,6 +4,7 @@ import com.pbot.bot.github.GitHubClient
 import com.pbot.bot.github.PullRequestFile
 import com.pbot.bot.llm.GptClient
 import com.pbot.bot.llm.ReviewIssue
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
@@ -11,6 +12,7 @@ class ReviewService(
     private val gitHubClient: GitHubClient,
     private val gptClient: GptClient,
 ) {
+    @Async
     fun reviewPullRequest(repo: String, number: Int) {
         val diff = gitHubClient.fetchDiff(repo, number)
         val files = gitHubClient.fetchFiles(repo, number)
