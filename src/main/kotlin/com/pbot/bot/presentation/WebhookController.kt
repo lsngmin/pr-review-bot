@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController
 class WebhookController(
     private val reviewService: ReviewService,
     @Value("\${github.webhook-secret}") private val webhookSecret: String,
+    @Value("\${github.bot.mention}") private val botMention: String,
 ) {
     private val log = LoggerFactory.getLogger(WebhookController::class.java)
     private val objectMapper = jacksonObjectMapper()
@@ -41,7 +42,8 @@ class WebhookController(
     private fun handleIssueComment(json: JsonNode): ResponseEntity<String> {
         if (json["action"].asText() != "created") return ResponseEntity.ok("skip:not-created")
         if (json["issue"]["pull_request"] == null) return ResponseEntity.ok("skip:not-pr")
-        if (!json["comment"]["body"].asText().trim().startsWith("/review")) {
+        val body = json["comment"]["body"].asText()
+        if (!CommandDetector.shouldTrigger(body, botMention)) {
             return ResponseEntity.ok("skip:not-command")
         }
 
