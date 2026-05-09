@@ -26,8 +26,8 @@ class ReviewService(
         log.info("Starting review for {}#{}", repo, number)
         val headSha = gitHubClient.fetchPullRequestHeadSha(repo, number)
 
-        if (history.isAlreadyReviewed(repo, number, headSha)) {
-            log.info("Skipping duplicate review for {}#{} (sha {} already reviewed)", repo, number, headSha)
+        if (!history.tryClaim(repo, number, headSha)) {
+            log.info("Skipping duplicate review for {}#{} (sha {} already claimed)", repo, number, headSha)
             return
         }
 
@@ -51,7 +51,6 @@ class ReviewService(
         val summary = mergeDroppedIntoSummary(result.summary, droppedIssues)
 
         gitHubClient.postReview(repo, number, summary, comments)
-        history.markReviewed(repo, number, headSha)
         log.info("Review posted for {}#{}: {} inline comments, {} dropped", repo, number, comments.size, droppedIssues.size)
     }
 
