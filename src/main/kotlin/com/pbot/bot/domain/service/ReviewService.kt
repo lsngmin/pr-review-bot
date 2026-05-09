@@ -1,9 +1,9 @@
-package com.pbot.bot.service
+package com.pbot.bot.domain.service
 
-import com.pbot.bot.github.GitHubClient
-import com.pbot.bot.github.PullRequestFile
-import com.pbot.bot.llm.GptClient
-import com.pbot.bot.llm.ReviewIssue
+import com.pbot.bot.domain.model.ReviewIssue
+import com.pbot.bot.infrastructure.github.GitHubClient
+import com.pbot.bot.infrastructure.github.PullRequestFile
+import com.pbot.bot.infrastructure.llm.GptClient
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 

@@ -1,4 +1,4 @@
-package com.pbot.bot.auth
+package com.pbot.bot.infrastructure.github
 
 import com.fasterxml.jackson.databind.JsonNode
 import io.jsonwebtoken.Jwts

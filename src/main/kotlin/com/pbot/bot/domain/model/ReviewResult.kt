@@ -1,4 +1,4 @@
-package com.pbot.bot.llm
+package com.pbot.bot.domain.model
 
 data class ReviewIssue(
     val path: String,

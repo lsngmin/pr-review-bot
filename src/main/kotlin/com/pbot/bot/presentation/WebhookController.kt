@@ -1,8 +1,8 @@
-package com.pbot.bot.controller
+package com.pbot.bot.presentation
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.pbot.bot.service.ReviewService
+import com.pbot.bot.domain.service.ReviewService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping

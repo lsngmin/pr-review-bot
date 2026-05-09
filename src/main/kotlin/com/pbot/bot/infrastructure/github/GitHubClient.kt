@@ -1,7 +1,6 @@
-package com.pbot.bot.github
+package com.pbot.bot.infrastructure.github
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.pbot.bot.auth.GitHubAuthService
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient

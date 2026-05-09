@@ -1,8 +1,9 @@
-package com.pbot.bot.llm
+package com.pbot.bot.infrastructure.llm
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.pbot.bot.domain.model.ReviewResult
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
