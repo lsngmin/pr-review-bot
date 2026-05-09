@@ -46,7 +46,7 @@ class GptClient(
         )
 
         val requestBody = mapOf(
-            "model" to "gpt-4o-mini",
+            "model" to "gpt-5.4",
             "messages" to listOf(
                 mapOf("role" to "system", "content" to ReviewPrompt.SYSTEM),
                 mapOf("role" to "user", "content" to diff),
