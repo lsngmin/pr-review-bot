@@ -1,8 +1,11 @@
-package com.pbot.bot.llm
+package com.pbot.bot.infrastructure.llm
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.pbot.bot.domain.model.ReviewResult
+import com.pbot.bot.domain.port.LlmPort
+import com.pbot.bot.domain.port.ReviewPrompt
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
@@ -11,21 +14,11 @@ import org.springframework.web.client.RestClient
 @Component
 class GptClient(
     @Value("\${openai.api-key}") private val openaiKey: String,
-) {
+) : LlmPort {
     private val rest = RestClient.create()
     private val mapper = jacksonObjectMapper()
 
-    fun review(diff: String): ReviewResult {
-        val systemPrompt = """
-            You are a senior code reviewer.
-            Review the following git diff and provide concise feedback in Korean.
-            Focus on bugs, security issues, and clear improvements.
-
-            Return:
-            - summary: 1~3 sentences overall feedback in Korean.
-            - issues: list of specific concerns. Each must reference an actual changed file (path) and an actual changed line (line number on the new file). Skip if uncertain.
-        """.trimIndent()
-
+    override fun review(diff: String): ReviewResult {
         val schema = mapOf(
             "name" to "code_review",
             "strict" to true,
@@ -55,7 +48,7 @@ class GptClient(
         val requestBody = mapOf(
             "model" to "gpt-4o-mini",
             "messages" to listOf(
-                mapOf("role" to "system", "content" to systemPrompt),
+                mapOf("role" to "system", "content" to ReviewPrompt.SYSTEM),
                 mapOf("role" to "user", "content" to diff),
             ),
             "response_format" to mapOf(

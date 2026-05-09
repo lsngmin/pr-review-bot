@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" shape-rendering="crispEdges">
+  <!-- Background (solid so it can be matched by GitHub Badge background color) -->
+  <rect width="512" height="512" fill="#312e81"/>
+
+  <!-- Pixel stars -->
+  <g fill="#a5b4fc" opacity="0.3">
+    <rect x="32"  y="64"  width="16" height="16"/>
+    <rect x="96"  y="160" width="16" height="16"/>
+    <rect x="448" y="96"  width="16" height="16"/>
+    <rect x="416" y="224" width="16" height="16"/>
+    <rect x="48"  y="384" width="16" height="16"/>
+    <rect x="464" y="416" width="16" height="16"/>
+    <rect x="80"  y="464" width="16" height="16"/>
+    <rect x="384" y="464" width="16" height="16"/>
+  </g>
+
+  <!-- 16x16 grid, 32px per cell -->
+
+  <!-- Antenna stem (col 7-8, row 1) -->
+  <rect x="224" y="32" width="64" height="32" fill="#64748b"/>
+
+  <!-- Antenna bulb (cols 6-9, rows 2-3) -->
+  <rect x="192" y="64"  width="128" height="64" fill="#fbbf24"/>
+  <rect x="208" y="80"  width="32"  height="16" fill="#fef3c7"/>
+
+  <!-- Head outline -->
+  <rect x="96"  y="128" width="320" height="32" fill="#1e293b"/>
+  <rect x="64"  y="160" width="32"  height="32" fill="#1e293b"/>
+  <rect x="416" y="160" width="32"  height="32" fill="#1e293b"/>
+  <rect x="32"  y="192" width="32"  height="192" fill="#1e293b"/>
+  <rect x="448" y="192" width="32"  height="192" fill="#1e293b"/>
+  <rect x="64"  y="384" width="32"  height="32" fill="#1e293b"/>
+  <rect x="416" y="384" width="32"  height="32" fill="#1e293b"/>
+  <rect x="96"  y="416" width="320" height="32" fill="#1e293b"/>
+
+  <!-- Head fill -->
+  <rect x="96"  y="160" width="320" height="32" fill="#e2e8f0"/>
+  <rect x="64"  y="192" width="384" height="192" fill="#e2e8f0"/>
+  <rect x="96"  y="384" width="320" height="32" fill="#e2e8f0"/>
+
+  <!-- Cheek/jaw shadow -->
+  <rect x="64"  y="352" width="384" height="32" fill="#cbd5e1"/>
+  <rect x="96"  y="384" width="320" height="32" fill="#cbd5e1"/>
+
+  <!-- Side bolts -->
+  <rect x="64"  y="272" width="32" height="32" fill="#94a3b8"/>
+  <rect x="416" y="272" width="32" height="32" fill="#94a3b8"/>
+
+  <!-- Eyes (3x2 LED, rows 7-8, cols 4-6 and cols 9-11) -->
+  <rect x="128" y="224" width="96" height="64" fill="#06b6d4"/>
+  <rect x="288" y="224" width="96" height="64" fill="#06b6d4"/>
+  <!-- Eye dark frame top -->
+  <rect x="128" y="224" width="96" height="16" fill="#0e7490"/>
+  <rect x="288" y="224" width="96" height="16" fill="#0e7490"/>
+  <!-- Eye highlight -->
+  <rect x="128" y="240" width="32" height="32" fill="#a5f3fc"/>
+  <rect x="288" y="240" width="32" height="32" fill="#a5f3fc"/>
+
+  <!-- Mouth (row 10, cols 5-10) -->
+  <rect x="160" y="320" width="192" height="32" fill="#1e293b"/>
+  <rect x="192" y="320" width="32" height="16" fill="#e2e8f0"/>
+  <rect x="288" y="320" width="32" height="16" fill="#e2e8f0"/>
+
+  <!-- Legs (rows 14-15, cols 4-5 and cols 10-11) -->
+  <rect x="128" y="448" width="64" height="64" fill="#1e293b"/>
+  <rect x="320" y="448" width="64" height="64" fill="#1e293b"/>
+  <!-- Leg highlights -->
+  <rect x="128" y="448" width="32" height="16" fill="#475569"/>
+  <rect x="320" y="448" width="32" height="16" fill="#475569"/>
+
+  <!-- Floating code brackets -->
+  <g fill="#a5b4fc">
+    <!-- Left < -->
+    <rect x="16"  y="272" width="16" height="16"/>
+    <rect x="0"   y="288" width="16" height="16"/>
+    <rect x="16"  y="304" width="16" height="16"/>
+    <!-- Right > -->
+    <rect x="480" y="272" width="16" height="16"/>
+    <rect x="496" y="288" width="16" height="16"/>
+    <rect x="480" y="304" width="16" height="16"/>
+  </g>
+</svg>
