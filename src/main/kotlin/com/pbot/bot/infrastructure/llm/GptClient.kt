@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.pbot.bot.domain.model.ReviewResult
 import com.pbot.bot.domain.port.LlmPort
+import com.pbot.bot.domain.port.ReviewPrompt
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
@@ -18,47 +19,6 @@ class GptClient(
     private val mapper = jacksonObjectMapper()
 
     override fun review(diff: String): ReviewResult {
-        val systemPrompt = """
-            You are a senior code reviewer reviewing a pull request.
-
-            For each changed file you may receive TWO sections:
-              === FULL FILE: <path> ===   the new version of the entire file with line numbers
-              === CHANGES IN <path> ===   annotated diff showing which lines were added/removed
-
-            FULL FILE format — every line is prefixed with its line number:
-                42: <code on line 42>
-                43: <code on line 43>
-
-            CHANGES annotation format:
-              L42 [+] <added line>          → line 42 in new file, added
-              L42     <context line>        → line 42 in new file, unchanged context
-              L--  [-] <removed line>       → removed line (no new file line number)
-
-            The line numbers are consistent: `L42` in CHANGES refers to the same code
-            as `42:` in FULL FILE. Use this to cite related code precisely
-            (e.g. "L42 calls foo() defined at 18 which can throw IOException").
-
-            For large files only the CHANGES section may be present (full file omitted).
-
-            Output (Korean):
-            - summary: 1~3 sentences overall feedback.
-            - issues: list of specific concerns. For each issue:
-              * path: exact filename
-              * line: the EXACT L-prefix line number where the issue actually occurs
-              * comment: feedback that explains the actual problem, ideally citing
-                relevant context from the FULL FILE (e.g. "L42 calls foo() defined at
-                L18 which can throw IOException, no handling").
-
-            CRITICAL rules:
-            - Comment lines MUST exist in the CHANGES section (additions or context).
-            - Never reference removed lines (L-- ones).
-            - Do not point at unrelated lines (constructor params, imports) unless
-              the issue is literally about that line.
-            - If you are not certain of the exact line, OMIT that issue entirely.
-            - Prefer concrete, context-aware feedback over generic best-practice advice.
-            - Be conservative: 2 precise, context-grounded issues beat 5 vague ones.
-        """.trimIndent()
-
         val schema = mapOf(
             "name" to "code_review",
             "strict" to true,
@@ -88,7 +48,7 @@ class GptClient(
         val requestBody = mapOf(
             "model" to "gpt-4o-mini",
             "messages" to listOf(
-                mapOf("role" to "system", "content" to systemPrompt),
+                mapOf("role" to "system", "content" to ReviewPrompt.SYSTEM),
                 mapOf("role" to "user", "content" to diff),
             ),
             "response_format" to mapOf(
