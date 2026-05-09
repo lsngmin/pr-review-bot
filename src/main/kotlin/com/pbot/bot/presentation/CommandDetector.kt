@@ -14,6 +14,9 @@ object CommandDetector {
 
     fun shouldTrigger(commentBody: String, botMention: String): Boolean {
         val trimmed = commentBody.trim()
+        // verify는 별도 path (pull_request_review_comment) 에서 처리되므로 review 트리거에서 제외.
+        // 사용자가 일반 PR 코멘트에 '@bot verify' 라고 적었을 때 풀 리뷰가 의도치 않게 도는 걸 방지.
+        if (shouldVerify(trimmed, botMention)) return false
         if (trimmed.startsWith("/review", ignoreCase = true)) return true
         return mentionPattern(botMention).containsMatchIn(trimmed)
     }

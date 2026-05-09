@@ -112,4 +112,13 @@ class CommandDetectorTest {
     fun `verify does not trigger on similar bot name`() {
         assertThat(CommandDetector.shouldVerify("@pawranoid-staging verify", botMention)).isFalse()
     }
+
+    // --- review/verify 충돌 방지 ---
+
+    @Test
+    fun `shouldTrigger returns false when comment is a verify command`() {
+        // verify 의도인데 review 트리거되면 안 됨 (verify는 별도 path)
+        assertThat(CommandDetector.shouldTrigger("@pawranoid verify", botMention)).isFalse()
+        assertThat(CommandDetector.shouldTrigger("/verify", botMention)).isFalse()
+    }
 }
