@@ -91,13 +91,23 @@ class GitHubClient(private val authService: GitHubAuthService) {
         body: String,
         comments: List<ReviewComment> = emptyList(),
     ) {
-        val apiComments = comments.map {
-            mapOf(
-                "path" to it.path,
-                "line" to it.line,
+        val apiComments = comments.map { c ->
+            // GitHub PR review API는 다중 라인일 때 start_line + start_side 필요.
+            // 단일 라인은 line + side만 (start_line 보내면 거절됨).
+            val base = mapOf(
+                "path" to c.path,
+                "line" to c.line,
                 "side" to "RIGHT",
-                "body" to it.body,
+                "body" to c.body,
             )
+            if (c.startLine != null) {
+                base + mapOf(
+                    "start_line" to c.startLine,
+                    "start_side" to "RIGHT",
+                )
+            } else {
+                base
+            }
         }
         val requestBody = mapOf(
             "body" to body,

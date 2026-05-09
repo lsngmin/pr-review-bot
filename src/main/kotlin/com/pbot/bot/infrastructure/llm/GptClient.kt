@@ -19,6 +19,8 @@ class GptClient(
     private val mapper = jacksonObjectMapper()
 
     override fun review(diff: String): ReviewResult {
+        // OpenAI strict mode는 모든 properties가 required에 있어야 하므로
+        // optional 필드는 ["type", "null"] 형태의 union 타입으로 표현한다.
         val schema = mapOf(
             "name" to "code_review",
             "strict" to true,
@@ -33,9 +35,11 @@ class GptClient(
                             "properties" to mapOf(
                                 "path" to mapOf("type" to "string"),
                                 "line" to mapOf("type" to "integer"),
+                                "startLine" to mapOf("type" to listOf("integer", "null")),
                                 "comment" to mapOf("type" to "string"),
+                                "suggestion" to mapOf("type" to listOf("string", "null")),
                             ),
-                            "required" to listOf("path", "line", "comment"),
+                            "required" to listOf("path", "line", "startLine", "comment", "suggestion"),
                             "additionalProperties" to false,
                         ),
                     ),

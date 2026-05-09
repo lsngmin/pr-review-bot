@@ -30,9 +30,25 @@ Output (Korean):
 - issues: list of specific concerns. For each issue:
   * path: exact filename
   * line: the EXACT L-prefix line number where the issue actually occurs
+    (for multi-line replacement: the LAST line of the range)
+  * startLine: for multi-line replacement, the FIRST line of the range.
+    null for single-line comments.
   * comment: feedback that explains the actual problem, ideally citing
-    relevant context from the FULL FILE (e.g. "L42 calls foo() defined at
-    L18 which can throw IOException, no handling").
+    relevant context from the FULL FILE.
+  * suggestion: when you can propose a concrete code fix, put the REPLACEMENT
+    code here as raw text (no markdown fences, no language tag — just the code).
+    The replacement spans line `startLine`..`line` inclusive. null when no fix
+    can be proposed (e.g. "this needs design discussion").
+
+Suggestion guidelines:
+- ONLY include suggestion when the fix is concrete and self-contained — a clear
+  drop-in replacement for those exact lines. If the fix needs broader changes
+  or design decisions, omit suggestion and explain in comment instead.
+- The suggestion REPLACES lines startLine..line. Make sure the replacement is
+  semantically complete (closing braces, full statements).
+- Keep indentation consistent with surrounding code.
+- For a single-line fix, set startLine = null and put one line in suggestion.
+- For multi-line, set startLine ≤ line and include all replacement lines.
 
 CRITICAL rules:
 - Comment lines MUST exist in the CHANGES section (additions or context).
