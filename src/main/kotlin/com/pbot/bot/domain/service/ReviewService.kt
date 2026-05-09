@@ -1,22 +1,22 @@
 package com.pbot.bot.domain.service
 
 import com.pbot.bot.domain.model.ReviewIssue
+import com.pbot.bot.domain.port.LlmPort
 import com.pbot.bot.infrastructure.github.GitHubClient
 import com.pbot.bot.infrastructure.github.PullRequestFile
-import com.pbot.bot.infrastructure.llm.GptClient
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
 class ReviewService(
     private val gitHubClient: GitHubClient,
-    private val gptClient: GptClient,
+    private val llmPort: LlmPort,
 ) {
     @Async
     fun reviewPullRequest(repo: String, number: Int) {
         val files = gitHubClient.fetchFiles(repo, number)
         val annotatedDiff = files.joinToString("\n\n") { annotatePatch(it) }
-        val result = gptClient.review(annotatedDiff)
+        val result = llmPort.review(annotatedDiff)
 
         val validIssues = result.issues.filter { isLineInDiff(it, files) }
         val comments = validIssues.map {

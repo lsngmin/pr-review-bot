@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.pbot.bot.domain.model.ReviewResult
+import com.pbot.bot.domain.port.LlmPort
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
@@ -12,11 +13,11 @@ import org.springframework.web.client.RestClient
 @Component
 class GptClient(
     @Value("\${openai.api-key}") private val openaiKey: String,
-) {
+) : LlmPort {
     private val rest = RestClient.create()
     private val mapper = jacksonObjectMapper()
 
-    fun review(diff: String): ReviewResult {
+    override fun review(diff: String): ReviewResult {
         val systemPrompt = """
             You are a senior code reviewer.
             Review the following annotated diff and provide concise feedback in Korean.
