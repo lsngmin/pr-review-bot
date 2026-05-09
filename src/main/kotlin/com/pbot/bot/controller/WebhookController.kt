@@ -1,6 +1,7 @@
 package com.pbot.bot.controller
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.pbot.bot.auth.GitHubAuthService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.web.bind.annotation.PostMapping
@@ -10,8 +11,8 @@ import org.springframework.web.client.RestClient
 
 @RestController
 class WebhookController(
-    @Value("\${github.token}") val token: String,
-    @Value("\${openai.api-key}") val openaiKey: String
+    private val authService: GitHubAuthService,
+    @Value("\${openai.api-key}") val openaiKey: String,
 ) {
     private val rest = RestClient.create()
 
@@ -31,7 +32,7 @@ class WebhookController(
     private fun fetchDiff(repo: String, number: Int): String {
         return rest.get()
             .uri("https://api.github.com/repos/$repo/pulls/$number")
-            .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer ${authService.getInstallationToken()}")
             .header(HttpHeaders.ACCEPT, "application/vnd.github.v3.diff")
             .retrieve()
             .body(String::class.java)?: ""
@@ -63,7 +64,7 @@ class WebhookController(
         val requestBody = mapOf("body" to comment)
         rest.post()
             .uri("https://api.github.com/repos/$repo/issues/$number/comments")
-            .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer ${authService.getInstallationToken()}")
             .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
             .body(requestBody)
             .retrieve()
