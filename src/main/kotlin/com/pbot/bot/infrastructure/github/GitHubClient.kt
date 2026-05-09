@@ -47,9 +47,12 @@ class GitHubClient(private val authService: GitHubAuthService) {
      * PR의 변경 파일 목록을 페이징으로 전부 받아온다.
      * GitHub API는 한 페이지 최대 100개. 100개 넘는 PR도 정확히 처리.
      * 안전장치로 페이지 [MAX_FILE_PAGES] 까지만 받음 (오버사이즈 PR 방어).
+     * cap 도달해도 더 가져올 페이지가 남아있으면 경고 로깅 (silent truncation 방지).
      */
     fun fetchFiles(repo: String, number: Int): List<PullRequestFile> {
         val all = mutableListOf<PullRequestFile>()
+        var lastPageSize = 0
+        var pagesFetched = 0
         for (page in 1..MAX_FILE_PAGES) {
             val response = rest.get()
                 .uri("https://api.github.com/repos/$repo/pulls/$number/files?per_page=$PER_PAGE&page=$page")
@@ -64,7 +67,13 @@ class GitHubClient(private val authService: GitHubAuthService) {
                     patch = it["patch"]?.asText(),
                 )
             }
+            lastPageSize = response.size()
+            pagesFetched = page
             if (response.size() < PER_PAGE) break // 마지막 페이지
+        }
+        // cap 도달했고 마지막 페이지가 가득 = 더 있을 가능성 있음
+        if (pagesFetched == MAX_FILE_PAGES && lastPageSize == PER_PAGE) {
+            println("WARN: PR $repo#$number may have more than ${MAX_FILE_PAGES * PER_PAGE} files; remaining pages are truncated")
         }
         return all
     }

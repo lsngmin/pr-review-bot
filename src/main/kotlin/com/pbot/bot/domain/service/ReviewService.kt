@@ -20,18 +20,21 @@ class ReviewService(
     @Async
     fun reviewPullRequest(repo: String, number: Int) {
         val headSha = gitHubClient.fetchPullRequestHeadSha(repo, number)
-        val allFiles = gitHubClient.fetchFiles(repo, number)         // 검증용: 전체
-        val filesForLlm = allFiles.take(maxFiles)                     // LLM 입력용: 잘림 (토큰 보호)
+        val allFiles = gitHubClient.fetchFiles(repo, number)
+        val filesForLlm = allFiles.take(maxFiles)
+        if (allFiles.size > maxFiles) {
+            println("WARN: PR $repo#$number has ${allFiles.size} files, only first $maxFiles sent to LLM")
+        }
 
         val context = filesForLlm.joinToString("\n\n") { file ->
             buildFileContext(repo, headSha, file)
         }
         val result = llmPort.review(context)
 
-        // 검증은 전체 파일 기준 — LLM이 maxFiles 밖 파일을 짚어도 유효하면 통과
-        val (validIssues, droppedIssues) = result.issues.partition { isLineInDiff(it, allFiles) }
+        // 검증은 LLM이 실제로 본 파일만 — maxFiles 밖 파일 언급은 hallucination으로 간주.
+        val (validIssues, droppedIssues) = result.issues.partition { isLineInDiff(it, filesForLlm) }
         val comments = validIssues.map { issue ->
-            val actualPath = matchFile(issue.path, allFiles)?.path ?: issue.path
+            val actualPath = matchFile(issue.path, filesForLlm)?.path ?: issue.path
             ReviewComment(path = actualPath, line = issue.line, body = issue.comment)
         }
         val summary = mergeDroppedIntoSummary(result.summary, droppedIssues)
