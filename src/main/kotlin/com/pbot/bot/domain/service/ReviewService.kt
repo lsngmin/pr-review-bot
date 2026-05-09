@@ -87,7 +87,8 @@ class ReviewService(
 
     /**
      * issue가 가리키는 라인(들)이 diff hunk 안에 있는지 검증.
-     * 다중 라인이면 startLine과 line 둘 다 hunk 안에 있어야 하고 startLine ≤ line.
+     * 다중 라인이면 startLine..line 범위의 **모든 라인**이 hunk 안에 있어야 한다 —
+     * GitHub multi-line review comment는 연속된 diff 범위를 요구하므로 중간이 비면 422.
      */
     private fun isIssueInDiff(issue: ReviewIssue, files: List<PullRequestFile>): Boolean {
         val file = PathMatcher.match(issue.path, files) ?: return false
@@ -96,7 +97,7 @@ class ReviewService(
         if (issue.line !in validLines) return false
         if (issue.startLine != null) {
             if (issue.startLine > issue.line) return false
-            if (issue.startLine !in validLines) return false
+            if ((issue.startLine..issue.line).any { it !in validLines }) return false
         }
         return true
     }

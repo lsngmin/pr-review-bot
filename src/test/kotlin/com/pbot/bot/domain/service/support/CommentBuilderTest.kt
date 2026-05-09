@@ -95,4 +95,36 @@ class CommentBuilderTest {
 
         assertThat(comment.path).isEqualTo("src/main/kotlin/Foo.kt")
     }
+
+    @Test
+    fun `fence is longer than any backtick run inside suggestion`() {
+        // suggestion 본문에 ``` 가 들어있으면 우리 fence가 닫혀버리니
+        // 본문 backtick run보다 길게 fence를 잡아야 함
+        val issue = ReviewIssue(
+            path = "Foo.kt", line = 42, startLine = null,
+            comment = "use longer fence",
+            suggestion = "val md = \"\"\"\n```kotlin\nval x = 1\n```\n\"\"\"",
+        )
+
+        val comment = CommentBuilder.build(issue, actualPath = "Foo.kt")
+
+        // 본문에 ``` 있으니 우리는 ```` 사용해야 함
+        assertThat(comment.body).contains("````suggestion")
+        assertThat(comment.body).endsWith("````")
+    }
+
+    @Test
+    fun `fence is even longer when suggestion contains four backticks`() {
+        val issue = ReviewIssue(
+            path = "Foo.kt", line = 1, startLine = null,
+            comment = "very tricky",
+            suggestion = "weird ```` text",
+        )
+
+        val comment = CommentBuilder.build(issue, actualPath = "Foo.kt")
+
+        // 본문 max run 4 → fence 5
+        assertThat(comment.body).contains("`````suggestion")
+        assertThat(comment.body).endsWith("`````")
+    }
 }
