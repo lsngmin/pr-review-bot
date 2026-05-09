@@ -121,4 +121,21 @@ class CommandDetectorTest {
         assertThat(CommandDetector.shouldTrigger("@pawranoid verify", botMention)).isFalse()
         assertThat(CommandDetector.shouldTrigger("/verify", botMention)).isFalse()
     }
+
+    // --- 정규식 단어 경계 검증 ---
+
+    @Test
+    fun `shouldTrigger does not match slash review with extra suffix chars`() {
+        // /reviewer, /review123 같은 부분 일치는 false positive
+        assertThat(CommandDetector.shouldTrigger("/reviewer please", botMention)).isFalse()
+        assertThat(CommandDetector.shouldTrigger("/review123", botMention)).isFalse()
+        assertThat(CommandDetector.shouldTrigger("/review-now", botMention)).isFalse()
+    }
+
+    @Test
+    fun `shouldVerify does not match slash verify with extra suffix chars`() {
+        assertThat(CommandDetector.shouldVerify("/verifying", botMention)).isFalse()
+        assertThat(CommandDetector.shouldVerify("/verify123", botMention)).isFalse()
+        assertThat(CommandDetector.shouldVerify("/verify-now", botMention)).isFalse()
+    }
 }

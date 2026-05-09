@@ -79,21 +79,6 @@ class VerifyService(
 
         // 우리 LlmPort.review는 ReviewResult를 반환. summary 필드에 verdict 텍스트 들어옴.
         val result = verifierLlm.review(prompt)
-        val verdict = result.summary
-        return formatVerdict(verdict)
-    }
-
-    private fun formatVerdict(verdict: String): String {
-        val emoji = when {
-            verdict.startsWith("AGREE", ignoreCase = true) -> "✅"
-            verdict.startsWith("DISAGREE", ignoreCase = true) -> "⚠️"
-            verdict.startsWith("PARTIAL", ignoreCase = true) -> "🟡"
-            else -> "🤖"
-        }
-        return buildString {
-            appendLine("**$emoji Cross-verify (Claude Sonnet)**")
-            appendLine()
-            append(verdict)
-        }
+        return result.summary
     }
 }
