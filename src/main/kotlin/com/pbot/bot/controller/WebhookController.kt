@@ -1,5 +1,6 @@
 package com.pbot.bot.controller
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.pbot.bot.service.ReviewService
 import org.springframework.beans.factory.annotation.Value
@@ -22,6 +23,7 @@ class WebhookController(
     @PostMapping("/webhook")
     fun receive(
         @RequestHeader("X-Hub-Signature-256") signature: String?,
+        @RequestHeader("X-GitHub-Event") event: String?,
         @RequestBody body: String,
     ): ResponseEntity<String> {
         if (!verifySignature(body, signature)) {
@@ -29,12 +31,21 @@ class WebhookController(
         }
 
         val json = objectMapper.readTree(body)
-        val action = json["action"].asText()
-        if (action != "opened") return ResponseEntity.ok("skip")
+        return when (event) {
+            "issue_comment" -> handleIssueComment(json)
+            else -> ResponseEntity.ok("ignored:$event")
+        }
+    }
+
+    private fun handleIssueComment(json: JsonNode): ResponseEntity<String> {
+        if (json["action"].asText() != "created") return ResponseEntity.ok("skip:not-created")
+        if (json["issue"]["pull_request"] == null) return ResponseEntity.ok("skip:not-pr")
+        if (!json["comment"]["body"].asText().trim().startsWith("/review")) {
+            return ResponseEntity.ok("skip:not-command")
+        }
 
         val repoName = json["repository"]["full_name"].asText()
-        val prNumber = json["pull_request"]["number"].asInt()
-
+        val prNumber = json["issue"]["number"].asInt()
         reviewService.reviewPullRequest(repoName, prNumber)
         return ResponseEntity.ok("ok")
     }
