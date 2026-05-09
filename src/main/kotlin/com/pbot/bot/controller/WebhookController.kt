@@ -23,6 +23,7 @@ class WebhookController(
         if (action != "opened") return "skip"
         val diff = fetchDiff(repoName, prNumber)
         val review = askGpt(diff)
+        postComment(repoName, prNumber, review)
         println(review)
         return "ok"
     }
@@ -57,5 +58,15 @@ class WebhookController(
             .body(requestBody)
             .retrieve()
             .body(JsonNode::class.java)!!["choices"][0]["message"]["content"].asText()
+    }
+    private fun postComment(repo: String, number: Int, comment: String) {
+        val requestBody = mapOf("body" to comment)
+        rest.post()
+            .uri("https://api.github.com/repos/$repo/issues/$number/comments")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
+            .body(requestBody)
+            .retrieve()
+            .toBodilessEntity()
     }
 }
