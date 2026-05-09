@@ -10,7 +10,8 @@ import org.springframework.web.client.RestClient
 
 @RestController
 class WebhookController(
-    @Value("\${github.token}") val token: String
+    @Value("\${github.token}") val token: String,
+    @Value("\${openai.api-key}") val openaiKey: String
 ) {
     private val rest = RestClient.create()
 
@@ -20,8 +21,9 @@ class WebhookController(
         val repoName = body["repository"]["full_name"].asText()
         val prNumber = body["pull_request"]["number"].asInt()
         if (action != "opened") return "skip"
-
-        println(fetchDiff(repoName, prNumber))
+        val diff = fetchDiff(repoName, prNumber)
+        val review = askGpt(diff)
+        println(review)
         return "ok"
     }
 
@@ -32,5 +34,28 @@ class WebhookController(
             .header(HttpHeaders.ACCEPT, "application/vnd.github.v3.diff")
             .retrieve()
             .body(String::class.java)?: ""
+    }
+    private fun askGpt(diff: String): String {
+        val systemPrompt = """
+            You are a senior code reviewer.
+            Review the following git diff and provide concise feedback in Korean.
+            Focus on bugs, security issues, and clear improvements.
+            Keep it short (under 300 words).
+        """.trimIndent()
+
+        val requestBody = mapOf(
+            "model" to "gpt-4o-mini",
+            "messages" to listOf(
+                mapOf("role" to "system", "content" to systemPrompt),
+                mapOf("role" to "user", "content" to diff),
+            )
+        )
+        return rest.post()
+            .uri("https://api.openai.com/v1/chat/completions")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $openaiKey")
+            .header(HttpHeaders.CONTENT_TYPE, "application/json")
+            .body(requestBody)
+            .retrieve()
+            .body(JsonNode::class.java)!!["choices"][0]["message"]["content"].asText()
     }
 }
