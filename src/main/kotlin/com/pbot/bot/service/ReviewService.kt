@@ -14,9 +14,9 @@ class ReviewService(
 ) {
     @Async
     fun reviewPullRequest(repo: String, number: Int) {
-        val diff = gitHubClient.fetchDiff(repo, number)
         val files = gitHubClient.fetchFiles(repo, number)
-        val result = gptClient.review(diff)
+        val annotatedDiff = files.joinToString("\n\n") { annotatePatch(it) }
+        val result = gptClient.review(annotatedDiff)
 
         val validIssues = result.issues.filter { isLineInDiff(it, files) }
         val comments = validIssues.map {
@@ -38,6 +38,53 @@ class ReviewService(
     }
 
     /**
+     * patch에 라인 번호를 붙여서 LLM이 정확한 라인을 짚을 수 있게 한다.
+     *
+     * 출력 예:
+     * ```
+     * === src/main/kotlin/Foo.kt ===
+     * @@ -10,5 +14,8 @@
+     * L14     class Foo(
+     * L15 [+]     @Async
+     * L16     fun bar() {
+     * L-  [-]     val old = ...
+     * ```
+     */
+    private fun annotatePatch(file: PullRequestFile): String {
+        val sb = StringBuilder()
+        sb.appendLine("=== ${file.path} ===")
+        val patch = file.patch ?: run {
+            sb.appendLine("(binary or no patch)")
+            return sb.toString()
+        }
+        var newLine = 0
+        for (raw in patch.lines()) {
+            when {
+                raw.startsWith("@@") -> {
+                    val match = Regex("""\+(\d+)""").find(raw) ?: continue
+                    newLine = match.groupValues[1].toInt()
+                    sb.appendLine(raw)
+                }
+                raw.startsWith("+++") -> {}
+                raw.startsWith("---") -> {}
+                raw.startsWith("+") -> {
+                    sb.appendLine("L%-4d [+] %s".format(newLine, raw.substring(1)))
+                    newLine++
+                }
+                raw.startsWith("-") -> {
+                    sb.appendLine("L--   [-] %s".format(raw.substring(1)))
+                }
+                else -> {
+                    val content = if (raw.startsWith(" ")) raw.substring(1) else raw
+                    sb.appendLine("L%-4d     %s".format(newLine, content))
+                    newLine++
+                }
+            }
+        }
+        return sb.toString()
+    }
+
+    /**
      * patch 텍스트를 파싱해서 diff hunk 안에 있는 새 파일 라인 번호 집합을 만든다.
      * 추가된 라인(+) 뿐 아니라 컨텍스트 라인(변경 안 된 주변 라인)도 인라인 코멘트 가능.
      */
@@ -47,19 +94,17 @@ class ReviewService(
         for (raw in patch.lines()) {
             when {
                 raw.startsWith("@@") -> {
-                    // @@ -10,5 +20,7 @@ → +20부터 시작
                     val match = Regex("""\+(\d+)""").find(raw) ?: continue
                     newLine = match.groupValues[1].toInt()
                 }
-                raw.startsWith("+++") -> { /* 파일명 헤더 무시 */ }
-                raw.startsWith("---") -> { /* 파일명 헤더 무시 */ }
+                raw.startsWith("+++") -> {}
+                raw.startsWith("---") -> {}
                 raw.startsWith("+") -> {
                     lines.add(newLine)
                     newLine++
                 }
-                raw.startsWith("-") -> { /* old 파일 라인은 새 파일 카운트에 영향 없음 */ }
+                raw.startsWith("-") -> {}
                 else -> {
-                    // 컨텍스트 라인도 포함 (인라인 코멘트 가능)
                     lines.add(newLine)
                     newLine++
                 }

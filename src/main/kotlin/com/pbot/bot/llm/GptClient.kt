@@ -18,12 +18,31 @@ class GptClient(
     fun review(diff: String): ReviewResult {
         val systemPrompt = """
             You are a senior code reviewer.
-            Review the following git diff and provide concise feedback in Korean.
+            Review the following annotated diff and provide concise feedback in Korean.
             Focus on bugs, security issues, and clear improvements.
+
+            The diff is annotated with explicit line numbers in the format:
+              L42 [+] <added line>          → line 42 in new file, added
+              L42     <context line>        → line 42 in new file, unchanged context
+              L--  [-] <removed line>       → removed line (no new file line number)
 
             Return:
             - summary: 1~3 sentences overall feedback in Korean.
-            - issues: list of specific concerns. Each must reference an actual changed file (path) and an actual changed line (line number on the new file). Skip if uncertain.
+            - issues: list of specific concerns. For each issue:
+              * path: exact filename from the annotated diff
+              * line: the EXACT L-prefix line number where the issue actually occurs
+              * comment: the feedback in Korean
+
+            CRITICAL line precision rules:
+            - The line number MUST be the line where the actual problem exists.
+              If you say "exception handling missing here", `line` must point at the
+              line that needs the handling, NOT a nearby declaration line.
+            - Do NOT point at constructor parameters, imports, or class declarations
+              unless the issue is literally about that line.
+            - If you are not certain of the exact line, OMIT that issue entirely.
+            - Never reference removed lines (L-- ones) — they have no valid line number.
+
+            Be conservative: 2 precise issues are better than 5 vague ones.
         """.trimIndent()
 
         val schema = mapOf(
