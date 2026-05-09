@@ -1,8 +1,8 @@
 package com.pbot.bot.domain.service
 
-import com.pbot.bot.domain.model.ReviewComment
 import com.pbot.bot.domain.model.ReviewIssue
 import com.pbot.bot.domain.port.LlmPort
+import com.pbot.bot.domain.service.support.CommentBuilder
 import com.pbot.bot.domain.service.support.DiffAnnotator
 import com.pbot.bot.domain.service.support.PathMatcher
 import com.pbot.bot.domain.service.support.SummaryBuilder
@@ -46,10 +46,10 @@ class ReviewService(
         val result = llmPort.review(context)
 
         // 검증은 LLM이 실제로 본 파일만 — maxFiles 밖 파일 언급은 hallucination으로 간주.
-        val (validIssues, droppedIssues) = result.issues.partition { isLineInDiff(it, filesForLlm) }
+        val (validIssues, droppedIssues) = result.issues.partition { isIssueInDiff(it, filesForLlm) }
         val comments = validIssues.map { issue ->
             val actualPath = PathMatcher.match(issue.path, filesForLlm)?.path ?: issue.path
-            ReviewComment(path = actualPath, line = issue.line, body = issue.comment)
+            CommentBuilder.build(issue, actualPath)
         }
         val summary = SummaryBuilder.mergeDroppedIntoSummary(result.summary, droppedIssues)
 
@@ -85,9 +85,20 @@ class ReviewService(
         }
     }
 
-    private fun isLineInDiff(issue: ReviewIssue, files: List<PullRequestFile>): Boolean {
+    /**
+     * issue가 가리키는 라인(들)이 diff hunk 안에 있는지 검증.
+     * 다중 라인이면 startLine..line 범위의 **모든 라인**이 hunk 안에 있어야 한다 —
+     * GitHub multi-line review comment는 연속된 diff 범위를 요구하므로 중간이 비면 422.
+     */
+    private fun isIssueInDiff(issue: ReviewIssue, files: List<PullRequestFile>): Boolean {
         val file = PathMatcher.match(issue.path, files) ?: return false
         val patch = file.patch ?: return false
-        return DiffAnnotator.lineNumbersInDiff(patch).contains(issue.line)
+        val validLines = DiffAnnotator.lineNumbersInDiff(patch)
+        if (issue.line !in validLines) return false
+        if (issue.startLine != null) {
+            if (issue.startLine > issue.line) return false
+            if ((issue.startLine..issue.line).any { it !in validLines }) return false
+        }
+        return true
     }
 }

@@ -6,6 +6,14 @@ import org.junit.jupiter.api.Test
 
 class SummaryBuilderTest {
 
+    private fun issue(path: String, line: Int, comment: String) = ReviewIssue(
+        path = path,
+        line = line,
+        startLine = null,
+        comment = comment,
+        suggestion = null,
+    )
+
     @Test
     fun `returns original summary when no dropped issues`() {
         val result = SummaryBuilder.mergeDroppedIntoSummary("All looks good.", emptyList())
@@ -15,9 +23,7 @@ class SummaryBuilderTest {
 
     @Test
     fun `appends section header when one dropped issue`() {
-        val dropped = listOf(
-            ReviewIssue(path = "Foo.kt", line = 42, comment = "잠재적 버그"),
-        )
+        val dropped = listOf(issue("Foo.kt", 42, "잠재적 버그"))
 
         val result = SummaryBuilder.mergeDroppedIntoSummary("요약", dropped)
 
@@ -30,9 +36,9 @@ class SummaryBuilderTest {
     @Test
     fun `lists every dropped issue in markdown bullet form`() {
         val dropped = listOf(
-            ReviewIssue("A.kt", 1, "first"),
-            ReviewIssue("B.kt", 2, "second"),
-            ReviewIssue("C.kt", 3, "third"),
+            issue("A.kt", 1, "first"),
+            issue("B.kt", 2, "second"),
+            issue("C.kt", 3, "third"),
         )
 
         val result = SummaryBuilder.mergeDroppedIntoSummary("base", dropped)
@@ -45,7 +51,7 @@ class SummaryBuilderTest {
     @Test
     fun `keeps original summary text intact at the start`() {
         val original = "이 PR은 X를 수정합니다.\n버그 위험이 있습니다."
-        val dropped = listOf(ReviewIssue("Foo.kt", 1, "comment"))
+        val dropped = listOf(issue("Foo.kt", 1, "comment"))
 
         val result = SummaryBuilder.mergeDroppedIntoSummary(original, dropped)
 
