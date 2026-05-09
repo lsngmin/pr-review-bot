@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service
 class ReviewService(
     private val gitHubClient: GitHubClient,
     private val llmPort: LlmPort,
+    private val history: ReviewHistoryService,
 
     @Value("\${review.max-file-lines}") private val maxFileLines: Int,
     @Value("\${review.max-files}") private val maxFiles: Int,
@@ -24,6 +25,12 @@ class ReviewService(
     fun reviewPullRequest(repo: String, number: Int) {
         log.info("Starting review for {}#{}", repo, number)
         val headSha = gitHubClient.fetchPullRequestHeadSha(repo, number)
+
+        if (history.isAlreadyReviewed(repo, number, headSha)) {
+            log.info("Skipping duplicate review for {}#{} (sha {} already reviewed)", repo, number, headSha)
+            return
+        }
+
         val allFiles = gitHubClient.fetchFiles(repo, number)
         val filesForLlm = allFiles.take(maxFiles)
         if (allFiles.size > maxFiles) {
@@ -44,6 +51,7 @@ class ReviewService(
         val summary = mergeDroppedIntoSummary(result.summary, droppedIssues)
 
         gitHubClient.postReview(repo, number, summary, comments)
+        history.markReviewed(repo, number, headSha)
         log.info("Review posted for {}#{}: {} inline comments, {} dropped", repo, number, comments.size, droppedIssues.size)
     }
 
