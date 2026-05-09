@@ -5,6 +5,7 @@ import com.pbot.bot.domain.model.ReviewIssue
 import com.pbot.bot.domain.port.LlmPort
 import com.pbot.bot.infrastructure.github.GitHubClient
 import com.pbot.bot.infrastructure.github.PullRequestFile
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
@@ -17,13 +18,16 @@ class ReviewService(
     @Value("\${review.max-file-lines}") private val maxFileLines: Int,
     @Value("\${review.max-files}") private val maxFiles: Int,
 ) {
+    private val log = LoggerFactory.getLogger(ReviewService::class.java)
+
     @Async
     fun reviewPullRequest(repo: String, number: Int) {
+        log.info("Starting review for {}#{}", repo, number)
         val headSha = gitHubClient.fetchPullRequestHeadSha(repo, number)
         val allFiles = gitHubClient.fetchFiles(repo, number)
         val filesForLlm = allFiles.take(maxFiles)
         if (allFiles.size > maxFiles) {
-            println("WARN: PR $repo#$number has ${allFiles.size} files, only first $maxFiles sent to LLM")
+            log.warn("PR {}#{} has {} files, only first {} sent to LLM", repo, number, allFiles.size, maxFiles)
         }
 
         val context = filesForLlm.joinToString("\n\n") { file ->
@@ -40,6 +44,7 @@ class ReviewService(
         val summary = mergeDroppedIntoSummary(result.summary, droppedIssues)
 
         gitHubClient.postReview(repo, number, summary, comments)
+        log.info("Review posted for {}#{}: {} inline comments, {} dropped", repo, number, comments.size, droppedIssues.size)
     }
 
     /**

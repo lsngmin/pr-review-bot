@@ -3,6 +3,7 @@ package com.pbot.bot.presentation
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.pbot.bot.domain.service.ReviewService
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
@@ -18,6 +19,7 @@ class WebhookController(
     private val reviewService: ReviewService,
     @Value("\${github.webhook-secret}") private val webhookSecret: String,
 ) {
+    private val log = LoggerFactory.getLogger(WebhookController::class.java)
     private val objectMapper = jacksonObjectMapper()
 
     @PostMapping("/webhook")
@@ -27,10 +29,12 @@ class WebhookController(
         @RequestBody body: String,
     ): ResponseEntity<String> {
         if (!verifySignature(body, signature)) {
+            log.warn("Rejected webhook with invalid signature: event={}", event)
             return ResponseEntity.status(401).body("invalid signature")
         }
 
         val json = objectMapper.readTree(body)
+        log.debug("Webhook received: event={}", event)
         return when (event) {
             "issue_comment" -> handleIssueComment(json)
             else -> ResponseEntity.ok("ignored:$event")

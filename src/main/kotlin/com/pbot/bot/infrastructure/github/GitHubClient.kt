@@ -2,6 +2,7 @@ package com.pbot.bot.infrastructure.github
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.pbot.bot.domain.model.ReviewComment
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
@@ -13,6 +14,7 @@ data class PullRequestFile(
 
 @Component
 class GitHubClient(private val authService: GitHubAuthService) {
+    private val log = LoggerFactory.getLogger(GitHubClient::class.java)
     private val rest = RestClient.create()
 
     fun fetchDiff(repo: String, number: Int): String {
@@ -73,7 +75,7 @@ class GitHubClient(private val authService: GitHubAuthService) {
         }
         // cap 도달했고 마지막 페이지가 가득 = 더 있을 가능성 있음
         if (pagesFetched == MAX_FILE_PAGES && lastPageSize == PER_PAGE) {
-            println("WARN: PR $repo#$number may have more than ${MAX_FILE_PAGES * PER_PAGE} files; remaining pages are truncated")
+            log.warn("PR {}#{} may have more than {} files; remaining pages are truncated", repo, number, MAX_FILE_PAGES * PER_PAGE)
         }
         return all
     }
