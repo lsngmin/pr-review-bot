@@ -10,9 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
-import java.security.MessageDigest
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 @RestController
 class WebhookController(
@@ -28,7 +25,7 @@ class WebhookController(
         @RequestHeader("X-GitHub-Event") event: String?,
         @RequestBody body: String,
     ): ResponseEntity<String> {
-        if (!verifySignature(body, signature)) {
+        if (!WebhookSignatureVerifier.verify(body, signature, webhookSecret)) {
             log.warn("Rejected webhook with invalid signature: event={}", event)
             return ResponseEntity.status(401).body("invalid signature")
         }
@@ -54,15 +51,4 @@ class WebhookController(
         return ResponseEntity.ok("ok")
     }
 
-    private fun verifySignature(body: String, signatureHeader: String?): Boolean {
-        if (signatureHeader == null) return false
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(webhookSecret.toByteArray(), "HmacSHA256"))
-        val computed = "sha256=" + mac.doFinal(body.toByteArray())
-            .joinToString("") { "%02x".format(it) }
-        return MessageDigest.isEqual(
-            signatureHeader.toByteArray(),
-            computed.toByteArray()
-        )
-    }
 }
