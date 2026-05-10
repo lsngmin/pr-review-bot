@@ -9,7 +9,7 @@ package com.pbot.bot.domain.model
  * @property path 코멘트 대상 파일 경로
  * @property line 코멘트가 달릴 새 파일 기준 라인 번호 (다중 라인이면 마지막 라인)
  * @property startLine 다중 라인 제안의 시작 라인. 단일 라인이면 null
- * @property severity 이슈 심각도 — walkthrough 통계 + 인라인 prefix 표시에 사용
+ * @property severity 이슈 심각도
  * @property comment 한국어 피드백 본문
  * @property suggestion 적용 가능한 코드 제안. null이면 일반 코멘트
  */
@@ -25,13 +25,10 @@ data class ReviewIssue(
 /**
  * LLM이 돌려준 코드 리뷰 전체 결과.
  *
- * - [walkthrough]: PR 메인 thread에 게시될 종합 요약
- * - [summary]: 인라인 review API의 body로 들어가는 짧은 총평
+ * - [walkthrough]: PR Review body 로 게시될 종합 요약 (overview/changes/files)
+ * - [summary]: 자유 텍스트 응답 슬롯. 메인 코드 리뷰에서는 표시되지 않으나 schema 에
+ *   필수로 남겨두어 verify 같은 자유 응답 use case 가 같은 schema 를 재사용한다.
  * - [issues]: 라인별 인라인 코멘트
- *
- * @property walkthrough PR 종합 요약
- * @property summary PR 인라인 review의 본문 (1~3문장)
- * @property issues 라인별 인라인 코멘트 목록
  */
 data class ReviewResult(
     val walkthrough: Walkthrough,

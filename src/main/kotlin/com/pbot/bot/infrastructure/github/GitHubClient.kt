@@ -18,6 +18,11 @@ data class PullRequestMeta(
     val additions: Int,
     val deletions: Int,
     val changedFiles: Int,
+    /**
+     * GitHub `mergeable_state`. 가능 값: clean, dirty, behind, blocked, unstable, draft, has_hooks, unknown.
+     * GitHub이 아직 계산 중이면 null 가능.
+     */
+    val mergeableState: String?,
 )
 
 @Component
@@ -61,12 +66,13 @@ class GitHubClient(private val authService: GitHubAuthService) {
             additions = response["additions"].asInt(),
             deletions = response["deletions"].asInt(),
             changedFiles = response["changed_files"].asInt(),
+            mergeableState = response["mergeable_state"]?.takeIf { !it.isNull }?.asText(),
         )
     }
 
     /**
-     * PR에 포함된 커밋의 message 목록을 페이징으로 모두 받아온다.
-     * fetchFiles와 동일한 안전장치(MAX 페이지) 적용.
+     * PR에 포함된 커밋 메시지를 페이징으로 모두 받아온다.
+     * fetchFiles 와 동일한 안전장치(MAX 페이지) 적용.
      */
     fun fetchCommitMessages(repo: String, number: Int): List<String> {
         val all = mutableListOf<String>()
@@ -80,9 +86,7 @@ class GitHubClient(private val authService: GitHubAuthService) {
                 .retrieve()
                 .body(JsonNode::class.java) ?: break
             if (!response.isArray || response.isEmpty) break
-            response.forEach {
-                all += it["commit"]["message"].asText()
-            }
+            response.forEach { all += it["commit"]["message"].asText() }
             lastPageSize = response.size()
             pagesFetched = page
             if (response.size() < PER_PAGE) break
@@ -177,21 +181,6 @@ class GitHubClient(private val authService: GitHubAuthService) {
             .header(HttpHeaders.AUTHORIZATION, bearer())
             .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
             .body(requestBody)
-            .retrieve()
-            .toBodilessEntity()
-    }
-
-    /**
-     * PR 메인 conversation 탭에 일반 코멘트를 게시한다.
-     * 인라인 review와 별개로, walkthrough 같은 PR 종합 요약 등에 사용.
-     * (참고: PR도 issue로 취급되므로 issues API 사용)
-     */
-    fun postPrComment(repo: String, number: Int, body: String) {
-        rest.post()
-            .uri("https://api.github.com/repos/$repo/issues/$number/comments")
-            .header(HttpHeaders.AUTHORIZATION, bearer())
-            .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
-            .body(mapOf("body" to body))
             .retrieve()
             .toBodilessEntity()
     }

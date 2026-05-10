@@ -5,9 +5,7 @@ import com.pbot.bot.domain.port.LlmPort
 import com.pbot.bot.domain.service.support.CommentBuilder
 import com.pbot.bot.domain.service.support.DiffAnnotator
 import com.pbot.bot.domain.service.support.PathMatcher
-import com.pbot.bot.domain.service.support.ProcessReportBuilder
-import com.pbot.bot.domain.service.support.ProcessReviewer
-import com.pbot.bot.domain.service.support.SummaryBuilder
+import com.pbot.bot.domain.service.support.PrEvaluator
 import com.pbot.bot.domain.service.support.WalkthroughBuilder
 import com.pbot.bot.infrastructure.github.GitHubClient
 import com.pbot.bot.infrastructure.github.PullRequestFile
@@ -43,9 +41,18 @@ class ReviewService(
             log.warn("PR {}#{} has {} files, only first {} sent to LLM", repo, number, allFiles.size, maxFiles)
         }
 
-        // process review는 LLM 의존 없이 결정적으로 먼저 게시 — LLM이 실패해도 사용자에게 가치 전달.
-        runCatching { postProcessReview(repo, number, allFiles) }
-            .onFailure { log.warn("Process review failed for {}#{}", repo, number, it) }
+        // PR 자체에 대한 결정적 평가 (메타 다듬기/머지/사이즈/테스트). LLM 실패와 무관하게
+        // 사용자에게 도달하도록 본 리뷰 흐름과 분리해 미리 계산. 실패 시 빈 리스트 fallback.
+        val prEvaluation = runCatching {
+            PrEvaluator.evaluate(
+                meta = gitHubClient.fetchPullRequest(repo, number),
+                files = allFiles,
+                commitMessages = gitHubClient.fetchCommitMessages(repo, number),
+            )
+        }.getOrElse {
+            log.warn("PR evaluation failed for {}#{}", repo, number, it)
+            emptyList()
+        }
 
         val context = filesForLlm.joinToString("\n\n") { file ->
             buildFileContext(repo, headSha, file)
@@ -58,29 +65,21 @@ class ReviewService(
             val actualPath = PathMatcher.match(issue.path, filesForLlm)?.path ?: issue.path
             CommentBuilder.build(issue, actualPath)
         }
-        val summary = SummaryBuilder.mergeDroppedIntoSummary(result.summary, droppedIssues)
 
-        // PR 메인 conversation 탭에 walkthrough 먼저 게시 → 인라인 review 별도 게시.
-        val walkthroughMd = WalkthroughBuilder.build(result.walkthrough, validIssues)
-        gitHubClient.postPrComment(repo, number, walkthroughMd)
-        gitHubClient.postReview(repo, number, summary, comments)
-        log.info("Review posted for {}#{}: walkthrough + {} inline comments, {} dropped", repo, number, comments.size, droppedIssues.size)
-    }
-
-    /**
-     * 코드 외 PR 메타(제목/설명/사이즈/커밋/테스트 동반)를 결정적으로 평가해 별도 코멘트로 게시.
-     * 노트 0개면 게시 자체를 생략 — "할 말 없음" 코멘트는 노이즈.
-     */
-    private fun postProcessReview(repo: String, number: Int, allFiles: List<com.pbot.bot.infrastructure.github.PullRequestFile>) {
-        val meta = gitHubClient.fetchPullRequest(repo, number)
-        val commitMessages = gitHubClient.fetchCommitMessages(repo, number)
-        val notes = ProcessReviewer.review(meta, allFiles, commitMessages)
-        val markdown = ProcessReportBuilder.build(notes) ?: run {
-            log.info("Process review for {}#{}: clean (no notes)", repo, number)
-            return
-        }
-        gitHubClient.postPrComment(repo, number, markdown)
-        log.info("Process review for {}#{}: posted {} notes", repo, number, notes.size)
+        // walkthrough + 검토 통계 + 평가 한 markdown 으로 합쳐 PR Review body 로 게시.
+        val combinedBody = WalkthroughBuilder.build(
+            walkthrough = result.walkthrough,
+            evaluation = prEvaluation,
+            reviewedFileCount = filesForLlm.size,
+            totalFileCount = allFiles.size,
+            inlineCommentCount = comments.size,
+            droppedCommentCount = droppedIssues.size,
+        )
+        gitHubClient.postReview(repo, number, combinedBody, comments)
+        log.info(
+            "Review posted for {}#{}: combined body({} eval lines) + {} inline comments, {} dropped",
+            repo, number, prEvaluation.size, comments.size, droppedIssues.size,
+        )
     }
 
     /**

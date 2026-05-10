@@ -1,106 +1,115 @@
 package com.pbot.bot.domain.service.support
 
-import com.pbot.bot.domain.model.ReviewIssue
-import com.pbot.bot.domain.model.Severity
 import com.pbot.bot.domain.model.Walkthrough
 
 /**
- * [Walkthrough] 도메인 객체를 PR 메인 conversation 탭에 게시할 markdown으로 변환한다.
+ * walkthrough + 평가 + 리뷰 통계를 합쳐 PR Review body 로 게시할 markdown 으로 변환.
  *
  * 형식:
  * ```
- * ## 🐶 Pawranoid Walkthrough
+ * ## Pawranoid PR overview
  *
- * ### 📝 What changed
- * <intent>
+ * <intent paragraph>
  *
- * ### 📂 Files changed
+ * ### What Changed
+ * - change 1
+ * - change 2
+ *
+ * ### What Reviewed
+ * 변경된 파일 N개를 모두 살펴봤어요. 인라인 코멘트는 K개 남겼습니다.
+ *
+ * <details>
+ * <summary>파일별 요약</summary>
+ *
  * | File | Type | Summary |
- * ...
+ * | Foo.kt | New | ... |
  *
- * ### ⚠️ Risk highlights      (risks가 있을 때만)
- * - 🔴 HIGH — ...
+ * </details>
  *
- * ### 🔍 Reviewed
- * - N issues found: 🔴 a · 🟡 b · 🟢 c   (또는 No issues found.)
- * - M suggestions with auto-fix available  (있을 때만)
- *
- * ---
- * *Triggered by `/review`*
+ * > **머지 가능** — ...
+ * >
+ * > **사이즈가 큽니다** ... — ...
  * ```
+ *
+ * 별도 PR 대화 코멘트로 walkthrough 를 분리해 띄우지 않는다 — Copilot 식으로
+ * 한 곳(Review body)에 모여 있어야 사용자가 PR을 한 화면에서 파악하기 쉽다.
  */
 object WalkthroughBuilder {
 
-    fun build(walkthrough: Walkthrough, issues: List<ReviewIssue>): String = buildString {
-        appendLine("## 🐶 Pawranoid Walkthrough")
+    fun build(
+        walkthrough: Walkthrough,
+        evaluation: List<String> = emptyList(),
+        reviewedFileCount: Int = walkthrough.files.size,
+        totalFileCount: Int = walkthrough.files.size,
+        inlineCommentCount: Int = 0,
+        droppedCommentCount: Int = 0,
+    ): String = buildString {
+        appendLine("## Pawranoid PR overview")
         appendLine()
 
-        appendLine("### 📝 What changed")
         appendLine(walkthrough.intent)
-        appendLine()
 
-        appendLine("### 📂 Files changed")
-        val prefix = commonDirPrefix(walkthrough.files.map { it.path })
-        if (prefix.isNotEmpty()) {
-            appendLine("_Paths relative to_ `$prefix`")
+        if (walkthrough.changes.isNotEmpty()) {
             appendLine()
+            appendLine("### What Changed")
+            walkthrough.changes.forEach { appendLine("- $it") }
         }
-        appendLine("| File | Type | Summary |")
-        appendLine("|------|------|---------|")
-        walkthrough.files.forEach { file ->
-            val display = file.path.removePrefix(prefix)
-            appendLine("| `$display` | ${file.type.label} | ${file.summary} |")
-        }
+
+        appendLine()
+        appendLine("### What Reviewed")
+        append(reviewStatsLine(reviewedFileCount, totalFileCount, inlineCommentCount, droppedCommentCount))
         appendLine()
 
-        if (walkthrough.risks.isNotEmpty()) {
-            appendLine("### ⚠️ Risk highlights")
-            walkthrough.risks.forEach { risk ->
-                val location = risk.location?.let { " (`$it`)" } ?: ""
-                appendLine("- ${risk.severity.emoji} **${risk.severity.name}** — ${risk.description}$location")
+        if (walkthrough.files.isNotEmpty()) {
+            appendLine()
+            appendLine("<details>")
+            appendLine("<summary>파일별 요약</summary>")
+            appendLine()
+            appendLine("| File | Type | Summary |")
+            appendLine("|------|------|---------|")
+            walkthrough.files.forEach { file ->
+                val name = file.path.substringAfterLast('/')
+                appendLine("| `$name` | ${file.type.label} | ${file.summary} |")
             }
             appendLine()
+            appendLine("</details>")
         }
 
-        appendLine("### 🔍 Reviewed")
-        if (issues.isEmpty()) {
-            appendLine("No issues found. Looks good.")
+        if (evaluation.isNotEmpty()) {
+            appendLine()
+            evaluation.forEachIndexed { i, line ->
+                appendLine("> $line")
+                if (i < evaluation.size - 1) appendLine(">")
+            }
+        }
+    }
+
+    /**
+     * Copilot 식 영문 통계 ("Copilot reviewed N out of M ... and generated K comments")
+     * 와 차별화하기 위해 한국어 conversational 톤으로 작성. 부분 검토(maxFiles cap)
+     * 인 경우 "N개 중 M개" 형식으로 분기.
+     */
+    private fun reviewStatsLine(
+        reviewedFileCount: Int,
+        totalFileCount: Int,
+        inlineCommentCount: Int,
+        droppedCommentCount: Int,
+    ): String {
+        val reviewedPart = if (reviewedFileCount == totalFileCount) {
+            "변경된 파일 ${totalFileCount}개를 모두 살펴봤어요"
         } else {
-            val high = issues.count { it.severity == Severity.HIGH }
-            val med = issues.count { it.severity == Severity.MEDIUM }
-            val low = issues.count { it.severity == Severity.LOW }
-            appendLine("- **${issues.size} issues found**: 🔴 $high · 🟡 $med · 🟢 $low")
-
-            val suggestions = issues.count { !it.suggestion.isNullOrBlank() }
-            if (suggestions > 0) {
-                appendLine("- **$suggestions suggestions** with auto-fix available")
-            }
+            "변경된 파일 ${totalFileCount}개 중 ${reviewedFileCount}개를 살펴봤어요"
         }
-        appendLine()
-
-        append("---")
-        appendLine()
-        append("*Triggered by `/review`*")
-    }
-
-    // 표 가독성을 위해 모든 파일이 공유하는 디렉토리 prefix를 한 번만 표기하고 행에서는 제외.
-    // 2개 미만이거나 prefix가 너무 짧으면(절약 효과 < 10자) 그대로 둔다.
-    private fun commonDirPrefix(paths: List<String>): String {
-        if (paths.size < 2) return ""
-        var idx = paths[0].length
-        for (other in paths.drop(1)) {
-            idx = minOf(idx, sharedLength(paths[0], other))
-            if (idx == 0) return ""
+        val commentsPart = if (inlineCommentCount > 0) {
+            "인라인 코멘트는 ${inlineCommentCount}개 남겼습니다"
+        } else {
+            "인라인 코멘트는 따로 남기지 않았습니다"
         }
-        val lastSlash = paths[0].substring(0, idx).lastIndexOf('/')
-        if (lastSlash < 0) return ""
-        val prefix = paths[0].substring(0, lastSlash + 1)
-        return if (prefix.length >= 10) prefix else ""
-    }
-
-    private fun sharedLength(a: String, b: String): Int {
-        val len = minOf(a.length, b.length)
-        for (i in 0 until len) if (a[i] != b[i]) return i
-        return len
+        val droppedPart = if (droppedCommentCount > 0) {
+            " (${droppedCommentCount}개 의견은 라인 매칭 실패로 보류)"
+        } else {
+            ""
+        }
+        return "$reviewedPart. $commentsPart.$droppedPart"
     }
 }

@@ -31,6 +31,10 @@ object ReviewSchema {
         "type" to "object",
         "properties" to mapOf(
             "intent" to mapOf("type" to "string"),
+            "changes" to mapOf(
+                "type" to "array",
+                "items" to mapOf("type" to "string"),
+            ),
             "files" to mapOf(
                 "type" to "array",
                 "items" to mapOf(
@@ -44,21 +48,8 @@ object ReviewSchema {
                     "additionalProperties" to false,
                 ),
             ),
-            "risks" to mapOf(
-                "type" to "array",
-                "items" to mapOf(
-                    "type" to "object",
-                    "properties" to mapOf(
-                        "severity" to mapOf("type" to "string", "enum" to SEVERITIES),
-                        "description" to mapOf("type" to "string"),
-                        "location" to mapOf("type" to listOf("string", "null")),
-                    ),
-                    "required" to listOf("severity", "description", "location"),
-                    "additionalProperties" to false,
-                ),
-            ),
         ),
-        "required" to listOf("intent", "files", "risks"),
+        "required" to listOf("intent", "changes", "files"),
         "additionalProperties" to false,
     )
 
