@@ -2,7 +2,6 @@ package com.pbot.bot.domain.service.support
 
 import com.pbot.bot.domain.model.FileChange
 import com.pbot.bot.domain.model.FileChangeType
-import com.pbot.bot.domain.model.ProcessNote
 import com.pbot.bot.domain.model.RiskHighlight
 import com.pbot.bot.domain.model.Severity
 import com.pbot.bot.domain.model.Walkthrough
@@ -15,7 +14,7 @@ class WalkthroughBuilderTest {
     fun `header always present`() {
         val md = WalkthroughBuilder.build(emptyWalkthrough())
 
-        assertThat(md).contains("## 🐶 Pawranoid Walkthrough")
+        assertThat(md).contains("## 🐶 Pawranoid Review")
     }
 
     @Test
@@ -28,7 +27,7 @@ class WalkthroughBuilderTest {
 
         val md = WalkthroughBuilder.build(w)
 
-        assertThat(md).contains("### 📝 What changed")
+        assertThat(md).contains("### ① What changed")
         assertThat(md).contains("OAuth migration.")
     }
 
@@ -45,7 +44,6 @@ class WalkthroughBuilderTest {
 
         val md = WalkthroughBuilder.build(w)
 
-        // 디렉토리는 떨어지고 파일명만, type은 이모지 없는 평문.
         assertThat(md).contains("| `Foo.kt` | New | 신규 OAuth callback |")
         assertThat(md).contains("| `Bar.kt` | Refactor | JWT 제거 |")
     }
@@ -63,65 +61,60 @@ class WalkthroughBuilderTest {
         assertThat(md).contains("| `README.md` | Doc | readme update |")
     }
 
-    // --- process notes ---
+    // --- evaluation blockquote (under Files changed) ---
 
     @Test
-    fun `process notes section omitted when empty`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), processNotes = emptyList())
+    fun `evaluation block omitted when empty`() {
+        val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = emptyList())
 
-        assertThat(md).doesNotContain("Process notes")
+        assertThat(md).doesNotContain("> ")
     }
 
     @Test
-    fun `process notes section renders severity label and message in plain text`() {
-        val notes = listOf(
-            ProcessNote(Severity.MEDIUM, "PR 사이즈가 큼"),
-            ProcessNote(Severity.LOW, "테스트 동반"),
+    fun `evaluation block renders each line with blockquote prefix`() {
+        val lines = listOf(
+            "**머지 가능** — 충돌 없음.",
+            "**사이즈가 큽니다** (12 files) — 분리 권장.",
         )
 
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), processNotes = notes)
+        val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = lines)
 
-        assertThat(md).contains("### 📋 Process notes")
-        assertThat(md).contains("- **MEDIUM** — PR 사이즈가 큼")
-        assertThat(md).contains("- **LOW** — 테스트 동반")
+        assertThat(md).contains("> **머지 가능** — 충돌 없음.")
+        assertThat(md).contains("> **사이즈가 큽니다** (12 files) — 분리 권장.")
     }
 
     @Test
-    fun `process notes ordered HIGH then MEDIUM then LOW`() {
-        val notes = listOf(
-            ProcessNote(Severity.LOW, "low one"),
-            ProcessNote(Severity.HIGH, "high one"),
-            ProcessNote(Severity.MEDIUM, "med one"),
-        )
+    fun `evaluation lines separated by empty blockquote line for paragraph break`() {
+        // GitHub markdown 에서 연속된 `>` 라인은 한 문단으로 합쳐짐 — 사이에 빈 `>` 가 있어야
+        // 라인이 시각적으로 분리됨. 이 테스트는 그 분리자가 들어가는지 검증.
+        val lines = listOf("first line", "second line", "third line")
 
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), processNotes = notes)
+        val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = lines)
 
-        val highIdx = md.indexOf("high one")
-        val medIdx = md.indexOf("med one")
-        val lowIdx = md.indexOf("low one")
-        assertThat(highIdx).isLessThan(medIdx)
-        assertThat(medIdx).isLessThan(lowIdx)
+        // 첫째 ↔ 둘째 사이, 둘째 ↔ 셋째 사이에 `>` 만 있는 라인이 등장.
+        val expected = "> first line\n>\n> second line\n>\n> third line"
+        assertThat(md).contains(expected)
     }
 
     @Test
-    fun `process notes section appears between Files changed and Risk highlights`() {
+    fun `evaluation block sits between Files changed table and Risk highlights`() {
         val w = Walkthrough(
             intent = "x",
             files = listOf(FileChange("Foo.kt", FileChangeType.NEW, "x")),
             risks = listOf(RiskHighlight(Severity.HIGH, "위험", null)),
         )
-        val notes = listOf(ProcessNote(Severity.MEDIUM, "process note"))
+        val lines = listOf("**머지 가능** — clean.")
 
-        val md = WalkthroughBuilder.build(w, processNotes = notes)
+        val md = WalkthroughBuilder.build(w, evaluation = lines)
 
-        val filesIdx = md.indexOf("### 📂 Files changed")
-        val processIdx = md.indexOf("### 📋 Process notes")
-        val risksIdx = md.indexOf("### ⚠️ Risk highlights")
-        assertThat(filesIdx).isLessThan(processIdx)
-        assertThat(processIdx).isLessThan(risksIdx)
+        val filesIdx = md.indexOf("### ② Files changed")
+        val evalIdx = md.indexOf("> **머지 가능**")
+        val risksIdx = md.indexOf("### ③ Risk highlights")
+        assertThat(filesIdx).isLessThan(evalIdx)
+        assertThat(evalIdx).isLessThan(risksIdx)
     }
 
-    // --- risks ---
+    // --- risks (renumbered to ③) ---
 
     @Test
     fun `risks section omitted when empty`() {
@@ -143,7 +136,7 @@ class WalkthroughBuilderTest {
 
         val md = WalkthroughBuilder.build(w)
 
-        assertThat(md).contains("### ⚠️ Risk highlights")
+        assertThat(md).contains("### ③ Risk highlights")
         assertThat(md).contains("- 🔴 **HIGH** — 인증 로직 교체 (`AuthService.kt:42`)")
         assertThat(md).contains("- 🟡 **MEDIUM** — 외부 의존성 추가")
     }
@@ -151,11 +144,12 @@ class WalkthroughBuilderTest {
     // --- removed legacy sections ---
 
     @Test
-    fun `no Reviewed section, no Triggered footer, no horizontal rule`() {
+    fun `no Reviewed section, no Triggered footer, no Process notes heading, no horizontal rule`() {
         val md = WalkthroughBuilder.build(emptyWalkthrough())
 
         assertThat(md).doesNotContain("Reviewed")
         assertThat(md).doesNotContain("Triggered by")
+        assertThat(md).doesNotContain("Process notes")
         assertThat(md).doesNotContain("\n---")
     }
 

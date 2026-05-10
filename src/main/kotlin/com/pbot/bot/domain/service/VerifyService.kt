@@ -2,7 +2,6 @@ package com.pbot.bot.domain.service
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.pbot.bot.domain.port.LlmPort
-import com.pbot.bot.domain.service.support.VerdictBadge
 import com.pbot.bot.infrastructure.github.GitHubClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -17,7 +16,7 @@ import org.springframework.stereotype.Service
  * 1. 봇이 인라인 리뷰 작성 → 사용자가 답글에 `/verify` 또는 `@pawranoid verify`
  * 2. webhook → 이 서비스가 비동기로 처리
  * 3. 원본 코멘트 + 주변 코드(±[CONTEXT_RADIUS]줄)를 다른 LLM(Claude)에게 보여주고 의견 받음
- * 4. 그 결과를 답글로 게시 (verdict 배지 prefix 포함)
+ * 4. 자연스러운 한국어 답글로 게시 (라벨/배지 없이)
  *
  * 사용 모델:
  * - 주 리뷰는 OpenAI(GptClient, @Primary)
@@ -57,12 +56,12 @@ class VerifyService(
             return
         }
 
-        val verdictBody = runCatching { runVerification(repo, original) }
+        val replyBody = runCatching { runVerification(repo, original) }
             .getOrElse { e ->
                 log.error("Verification LLM call failed for comment={}", parentCommentId, e)
-                "### 🤔 UNCLEAR\n\nVerifier 호출이 실패해 판단하지 못했습니다. (`${e.javaClass.simpleName}`)"
+                "Verifier 호출이 실패해 판단하지 못했습니다. (`${e.javaClass.simpleName}`)"
             }
-        gitHubClient.replyToReviewComment(repo, prNumber, parentCommentId, verdictBody)
+        gitHubClient.replyToReviewComment(repo, prNumber, parentCommentId, replyBody)
         log.info("Verification reply posted to comment={}", parentCommentId)
     }
 
@@ -95,19 +94,17 @@ class VerifyService(
             appendLine("=== Reviewer's comment ===")
             appendLine(originalBody)
             appendLine()
-            appendLine("Output strictly as JSON in summary field with one of: AGREE, DISAGREE, PARTIAL.")
-            appendLine("Examples:")
-            appendLine("  - 'AGREE: 실제로 IOException 발생 가능. 처리 추가 권장.'")
-            appendLine("  - 'DISAGREE: foo() 정의에 throws 없음. 원래 코멘트 false positive.'")
-            appendLine("  - 'PARTIAL: 의도는 맞으나 라인이 어긋남. 실제론 L20에서 발생.'")
-            appendLine("Reply summary in Korean, 2-3 sentences. issues should be empty list.")
+            appendLine("Reply in summary field as a natural Korean conversation, 2-3 sentences.")
+            appendLine("Do NOT use rigid prefixes like 'AGREE:', 'DISAGREE:', 'PARTIAL:', or any")
+            appendLine("badges/headers. Just talk like you're discussing with a colleague — state")
+            appendLine("whether you agree, partially agree, or disagree, and explain why concisely.")
+            appendLine("issues should be empty list.")
         }
 
-        // 우리 LlmPort.review는 ReviewResult를 반환. summary 필드에 verdict 텍스트 들어옴.
+        // 우리 LlmPort.review는 ReviewResult를 반환. summary 필드에 답글 본문이 들어옴.
         val result = verifierLlm.review(prompt)
-        val verdict = VerdictBadge.detect(result.summary)
-        log.info("Verify verdict={} for path={} line={}", verdict.label, path, line)
-        return VerdictBadge.render(result.summary)
+        log.info("Verify reply produced for path={} line={}", path, line)
+        return result.summary
     }
 
     /**

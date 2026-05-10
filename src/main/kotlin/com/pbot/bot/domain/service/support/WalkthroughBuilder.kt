@@ -1,6 +1,5 @@
 package com.pbot.bot.domain.service.support
 
-import com.pbot.bot.domain.model.ProcessNote
 import com.pbot.bot.domain.model.Walkthrough
 
 /**
@@ -8,43 +7,42 @@ import com.pbot.bot.domain.model.Walkthrough
  *
  * 형식:
  * ```
- * ## 🐶 Pawranoid Walkthrough
+ * ## 🐶 Pawranoid Review
  *
- * ### 📝 What changed
+ * ### ① What changed
  * <intent>
  *
- * ### 📂 Files changed
+ * ### ② Files changed
  * | File | Type | Summary |
  * | Foo.kt | New | ... |
  *
- * ### 📋 Process notes      (notes가 있을 때만)
- * - **MEDIUM** — ...
+ * > **머지 가능** — ...           (evaluation 라인이 있을 때 표 바로 아래 blockquote)
+ * >
+ * > **사이즈가 큽니다** ... — ...
  *
- * ### ⚠️ Risk highlights    (risks가 있을 때만)
+ * ### ③ Risk highlights      (risks가 있을 때만)
  * - 🔴 HIGH — ...
  * ```
  *
  * 표 폭을 줄이기 위해 File 컬럼은 디렉토리를 떼고 파일명만 표시.
- * 같은 파일명이 다른 디렉토리에 있는 경우는 (이 프로젝트엔 거의 없으므로) 우선 무시.
  *
- * Process notes는 PR 자체(사이즈/제목/커밋/테스트)에 대한 결정적 평가로,
- * "Files changed" 다음에 위치 — 변경 목록을 본 직후 "이 PR 자체가 잘 만들어졌나"
- * 를 함께 보게 하기 위함.
+ * evaluation 은 PR 자체에 대한 결정적 평가 라인 리스트로, [PrEvaluator] 가 생성한다.
+ * 항상 표시되는 머지 상태 한 줄 + 조건부 사이즈/테스트 라인.
  */
 object WalkthroughBuilder {
 
     fun build(
         walkthrough: Walkthrough,
-        processNotes: List<ProcessNote> = emptyList(),
+        evaluation: List<String> = emptyList(),
     ): String = buildString {
-        appendLine("## 🐶 Pawranoid Walkthrough")
+        appendLine("## 🐶 Pawranoid Review")
         appendLine()
 
-        appendLine("### 📝 What changed")
+        appendLine("### ① What changed")
         appendLine(walkthrough.intent)
         appendLine()
 
-        appendLine("### 📂 Files changed")
+        appendLine("### ② Files changed")
         appendLine("| File | Type | Summary |")
         appendLine("|------|------|---------|")
         walkthrough.files.forEach { file ->
@@ -53,18 +51,16 @@ object WalkthroughBuilder {
         }
         appendLine()
 
-        if (processNotes.isNotEmpty()) {
-            appendLine("### 📋 Process notes")
-            processNotes
-                .sortedBy { it.severity.ordinal } // HIGH 먼저
-                .forEach { note ->
-                    appendLine("- **${note.severity.name}** — ${note.message}")
-                }
+        if (evaluation.isNotEmpty()) {
+            evaluation.forEachIndexed { i, line ->
+                appendLine("> $line")
+                if (i < evaluation.size - 1) appendLine(">")
+            }
             appendLine()
         }
 
         if (walkthrough.risks.isNotEmpty()) {
-            appendLine("### ⚠️ Risk highlights")
+            appendLine("### ③ Risk highlights")
             walkthrough.risks.forEach { risk ->
                 val location = risk.location?.let { " (`$it`)" } ?: ""
                 appendLine("- ${risk.severity.emoji} **${risk.severity.name}** — ${risk.description}$location")
