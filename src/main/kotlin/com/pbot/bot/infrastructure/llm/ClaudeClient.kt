@@ -28,28 +28,8 @@ class ClaudeClient(
     override fun review(diff: String): ReviewResult {
         val tool = mapOf(
             "name" to "submit_code_review",
-            "description" to "Submit a structured code review with summary and inline issues.",
-            "input_schema" to mapOf(
-                "type" to "object",
-                "properties" to mapOf(
-                    "summary" to mapOf("type" to "string"),
-                    "issues" to mapOf(
-                        "type" to "array",
-                        "items" to mapOf(
-                            "type" to "object",
-                            "properties" to mapOf(
-                                "path" to mapOf("type" to "string"),
-                                "line" to mapOf("type" to "integer"),
-                                "startLine" to mapOf("type" to listOf("integer", "null")),
-                                "comment" to mapOf("type" to "string"),
-                                "suggestion" to mapOf("type" to listOf("string", "null")),
-                            ),
-                            "required" to listOf("path", "line", "startLine", "comment", "suggestion"),
-                        ),
-                    ),
-                ),
-                "required" to listOf("summary", "issues"),
-            ),
+            "description" to "Submit a structured code review with walkthrough, summary and inline issues.",
+            "input_schema" to ReviewSchema.ROOT,
         )
 
         val requestBody = mapOf(

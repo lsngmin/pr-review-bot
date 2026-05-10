@@ -124,6 +124,21 @@ class GitHubClient(private val authService: GitHubAuthService) {
     }
 
     /**
+     * PR 메인 conversation 탭에 일반 코멘트를 게시한다.
+     * 인라인 review와 별개로, walkthrough 같은 PR 종합 요약 등에 사용.
+     * (참고: PR도 issue로 취급되므로 issues API 사용)
+     */
+    fun postPrComment(repo: String, number: Int, body: String) {
+        rest.post()
+            .uri("https://api.github.com/repos/$repo/issues/$number/comments")
+            .header(HttpHeaders.AUTHORIZATION, bearer())
+            .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
+            .body(mapOf("body" to body))
+            .retrieve()
+            .toBodilessEntity()
+    }
+
+    /**
      * 단일 review comment(인라인 코멘트) 한 건의 본문/메타를 가져온다.
      * 경로: GET /repos/{repo}/pulls/comments/{id}  (PR 번호 불필요)
      */

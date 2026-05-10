@@ -1,6 +1,7 @@
 package com.pbot.bot.domain.service.support
 
 import com.pbot.bot.domain.model.ReviewIssue
+import com.pbot.bot.domain.model.Severity
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -10,6 +11,7 @@ class SummaryBuilderTest {
         path = path,
         line = line,
         startLine = null,
+        severity = Severity.MEDIUM,
         comment = comment,
         suggestion = null,
     )

@@ -6,6 +6,7 @@ import com.pbot.bot.domain.service.support.CommentBuilder
 import com.pbot.bot.domain.service.support.DiffAnnotator
 import com.pbot.bot.domain.service.support.PathMatcher
 import com.pbot.bot.domain.service.support.SummaryBuilder
+import com.pbot.bot.domain.service.support.WalkthroughBuilder
 import com.pbot.bot.infrastructure.github.GitHubClient
 import com.pbot.bot.infrastructure.github.PullRequestFile
 import org.slf4j.LoggerFactory
@@ -53,8 +54,11 @@ class ReviewService(
         }
         val summary = SummaryBuilder.mergeDroppedIntoSummary(result.summary, droppedIssues)
 
+        // PR 메인 conversation 탭에 walkthrough 먼저 게시 → 인라인 review 별도 게시.
+        val walkthroughMd = WalkthroughBuilder.build(result.walkthrough, validIssues)
+        gitHubClient.postPrComment(repo, number, walkthroughMd)
         gitHubClient.postReview(repo, number, summary, comments)
-        log.info("Review posted for {}#{}: {} inline comments, {} dropped", repo, number, comments.size, droppedIssues.size)
+        log.info("Review posted for {}#{}: walkthrough + {} inline comments, {} dropped", repo, number, comments.size, droppedIssues.size)
     }
 
     /**
