@@ -27,7 +27,7 @@ class WebhookController(
     fun receive(
         @RequestHeader("X-Hub-Signature-256") signature: String?,
         @RequestHeader("X-GitHub-Event") event: String?,
-        @RequestBody body: String,
+        @RequestBody body: ByteArray,
     ): ResponseEntity<String> {
         if (!WebhookSignatureVerifier.verify(body, signature, webhookSecret)) {
             log.warn("Rejected webhook with invalid signature: event={}", event)
