@@ -12,6 +12,14 @@ data class PullRequestFile(
     val patch: String?,
 )
 
+data class PullRequestMeta(
+    val title: String,
+    val body: String,
+    val additions: Int,
+    val deletions: Int,
+    val changedFiles: Int,
+)
+
 @Component
 class GitHubClient(private val authService: GitHubAuthService) {
     private val log = LoggerFactory.getLogger(GitHubClient::class.java)
@@ -34,6 +42,55 @@ class GitHubClient(private val authService: GitHubAuthService) {
             .retrieve()
             .body(JsonNode::class.java)!!
         return response["head"]["sha"].asText()
+    }
+
+    /**
+     * PR 자체에 대한 메타 정보 — meta-review 룰 입력으로 사용.
+     * `body` 가 null인 경우(설명 없음)는 빈 문자열로 정규화.
+     */
+    fun fetchPullRequest(repo: String, number: Int): PullRequestMeta {
+        val response = rest.get()
+            .uri("https://api.github.com/repos/$repo/pulls/$number")
+            .header(HttpHeaders.AUTHORIZATION, bearer())
+            .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
+            .retrieve()
+            .body(JsonNode::class.java)!!
+        return PullRequestMeta(
+            title = response["title"].asText(),
+            body = response["body"]?.takeIf { !it.isNull }?.asText() ?: "",
+            additions = response["additions"].asInt(),
+            deletions = response["deletions"].asInt(),
+            changedFiles = response["changed_files"].asInt(),
+        )
+    }
+
+    /**
+     * PR에 포함된 커밋의 message 목록을 페이징으로 모두 받아온다.
+     * fetchFiles와 동일한 안전장치(MAX 페이지) 적용.
+     */
+    fun fetchCommitMessages(repo: String, number: Int): List<String> {
+        val all = mutableListOf<String>()
+        var lastPageSize = 0
+        var pagesFetched = 0
+        for (page in 1..MAX_COMMIT_PAGES) {
+            val response = rest.get()
+                .uri("https://api.github.com/repos/$repo/pulls/$number/commits?per_page=$PER_PAGE&page=$page")
+                .header(HttpHeaders.AUTHORIZATION, bearer())
+                .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
+                .retrieve()
+                .body(JsonNode::class.java) ?: break
+            if (!response.isArray || response.isEmpty) break
+            response.forEach {
+                all += it["commit"]["message"].asText()
+            }
+            lastPageSize = response.size()
+            pagesFetched = page
+            if (response.size() < PER_PAGE) break
+        }
+        if (pagesFetched == MAX_COMMIT_PAGES && lastPageSize == PER_PAGE) {
+            log.warn("PR {}#{} may have more than {} commits; remaining pages truncated", repo, number, MAX_COMMIT_PAGES * PER_PAGE)
+        }
+        return all
     }
 
     fun fetchFileContent(repo: String, path: String, ref: String): String {
@@ -83,6 +140,7 @@ class GitHubClient(private val authService: GitHubAuthService) {
     private companion object {
         const val PER_PAGE = 100
         const val MAX_FILE_PAGES = 10 // 최대 1000 파일까지 (방어선)
+        const val MAX_COMMIT_PAGES = 5 // 최대 500 커밋까지 (방어선)
     }
 
     fun postReview(

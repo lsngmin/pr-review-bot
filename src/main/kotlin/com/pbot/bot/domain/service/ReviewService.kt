@@ -5,6 +5,8 @@ import com.pbot.bot.domain.port.LlmPort
 import com.pbot.bot.domain.service.support.CommentBuilder
 import com.pbot.bot.domain.service.support.DiffAnnotator
 import com.pbot.bot.domain.service.support.PathMatcher
+import com.pbot.bot.domain.service.support.ProcessReportBuilder
+import com.pbot.bot.domain.service.support.ProcessReviewer
 import com.pbot.bot.domain.service.support.SummaryBuilder
 import com.pbot.bot.domain.service.support.WalkthroughBuilder
 import com.pbot.bot.infrastructure.github.GitHubClient
@@ -41,6 +43,10 @@ class ReviewService(
             log.warn("PR {}#{} has {} files, only first {} sent to LLM", repo, number, allFiles.size, maxFiles)
         }
 
+        // process review는 LLM 의존 없이 결정적으로 먼저 게시 — LLM이 실패해도 사용자에게 가치 전달.
+        runCatching { postProcessReview(repo, number, allFiles) }
+            .onFailure { log.warn("Process review failed for {}#{}", repo, number, it) }
+
         val context = filesForLlm.joinToString("\n\n") { file ->
             buildFileContext(repo, headSha, file)
         }
@@ -59,6 +65,22 @@ class ReviewService(
         gitHubClient.postPrComment(repo, number, walkthroughMd)
         gitHubClient.postReview(repo, number, summary, comments)
         log.info("Review posted for {}#{}: walkthrough + {} inline comments, {} dropped", repo, number, comments.size, droppedIssues.size)
+    }
+
+    /**
+     * 코드 외 PR 메타(제목/설명/사이즈/커밋/테스트 동반)를 결정적으로 평가해 별도 코멘트로 게시.
+     * 노트 0개면 게시 자체를 생략 — "할 말 없음" 코멘트는 노이즈.
+     */
+    private fun postProcessReview(repo: String, number: Int, allFiles: List<com.pbot.bot.infrastructure.github.PullRequestFile>) {
+        val meta = gitHubClient.fetchPullRequest(repo, number)
+        val commitMessages = gitHubClient.fetchCommitMessages(repo, number)
+        val notes = ProcessReviewer.review(meta, allFiles, commitMessages)
+        val markdown = ProcessReportBuilder.build(notes) ?: run {
+            log.info("Process review for {}#{}: clean (no notes)", repo, number)
+            return
+        }
+        gitHubClient.postPrComment(repo, number, markdown)
+        log.info("Process review for {}#{}: posted {} notes", repo, number, notes.size)
     }
 
     /**
