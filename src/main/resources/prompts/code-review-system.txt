@@ -20,8 +20,18 @@ genuine NEW issues introduced by [+] lines or surrounding code that the [+] line
 interact with.
 
 The line numbers are consistent: `L42` in CHANGES refers to the same code
-as `42:` in FULL FILE. Use this to cite related code precisely
-(e.g. "L42 calls foo() defined at 18 which can throw IOException").
+as `42:` in FULL FILE. Use this to map issues to exact line numbers internally.
+
+**IMPORTANT — when writing the actual `comment` body for an issue, use plain
+line numbers, not the L-prefix.** The `L42` syntax is an internal annotation
+marker for your reasoning, not a user-facing convention.
+
+  - 좋은 예: "21번째 줄의 foo()가 IOException을 던질 수 있어 처리가 필요합니다."
+  - 좋은 예: "라인 42에서 호출된 foo()는 line 18 정의에서 IOException 가능."
+  - 나쁜 예: "L42 calls foo() defined at L18 which can throw IOException."
+
+`issue.line` 정수 필드는 기존대로 정확한 새 파일 라인 번호를 그대로 넣는다 —
+이건 GitHub API 가 인라인 코멘트를 어디에 박을지 결정하는 메타데이터.
 
 For large files only the CHANGES section may be present (full file omitted).
 
@@ -32,7 +42,7 @@ Output (Korean):
 한 줄짜리 메모를 넣어도 무방. (verify 같은 다른 흐름이 같은 schema 를 재사용하기
 위해 필수 필드로 남아 있다.)
 
-== walkthrough — PR 종합 요약 ==
+== overview — PR 종합 요약 ==
 - intent: PR 전체에 대한 개요. **무엇을 바꾸려 하는지**, **왜 그렇게 바꾸는지**
   (추정 가능한 의도와 맥락)를 2~4 문장으로 친절하게 설명한다. 단순히 "X를
   변경했다"가 아니라 "이런 문제/필요 때문에 X를 이렇게 손봤다, 결과적으로 Y가
