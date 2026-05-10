@@ -1,6 +1,7 @@
 package com.pbot.bot.domain.service.support
 
 import com.pbot.bot.domain.model.ReviewIssue
+import com.pbot.bot.domain.model.Severity
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -9,7 +10,7 @@ class CommentBuilderTest {
     @Test
     fun `body is just the comment when no suggestion`() {
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 42, startLine = null,
+            path = "Foo.kt", line = 42, startLine = null, severity = Severity.MEDIUM,
             comment = "여기 null 처리 필요해요.", suggestion = null,
         )
 
@@ -24,7 +25,7 @@ class CommentBuilderTest {
     @Test
     fun `body wraps suggestion in markdown suggestion fence`() {
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 42, startLine = null,
+            path = "Foo.kt", line = 42, startLine = null, severity = Severity.MEDIUM,
             comment = "null 가능성 있음.", suggestion = "val foo = parseFoo() ?: return",
         )
 
@@ -44,7 +45,7 @@ class CommentBuilderTest {
     @Test
     fun `multi-line suggestion preserves startLine`() {
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 45, startLine = 42,
+            path = "Foo.kt", line = 45, startLine = 42, severity = Severity.MEDIUM,
             comment = "예외 처리 추가.",
             suggestion = "try {\n    foo()\n} catch (e: IOException) {\n    log.error(\"failed\", e)\n}",
         )
@@ -60,7 +61,7 @@ class CommentBuilderTest {
     @Test
     fun `blank suggestion is treated as no suggestion`() {
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 42, startLine = null,
+            path = "Foo.kt", line = 42, startLine = null, severity = Severity.MEDIUM,
             comment = "코멘트만.", suggestion = "   ",
         )
 
@@ -73,7 +74,7 @@ class CommentBuilderTest {
     @Test
     fun `suggestion ending with newline does not add extra newline before fence close`() {
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 42, startLine = null,
+            path = "Foo.kt", line = 42, startLine = null, severity = Severity.MEDIUM,
             comment = "fix this", suggestion = "val safe = foo ?: return\n",
         )
 
@@ -87,7 +88,7 @@ class CommentBuilderTest {
     @Test
     fun `actualPath replaces the path from issue`() {
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 1, startLine = null,
+            path = "Foo.kt", line = 1, startLine = null, severity = Severity.MEDIUM,
             comment = "x", suggestion = null,
         )
 
@@ -101,7 +102,7 @@ class CommentBuilderTest {
         // suggestion 본문에 ``` 가 들어있으면 우리 fence가 닫혀버리니
         // 본문 backtick run보다 길게 fence를 잡아야 함
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 42, startLine = null,
+            path = "Foo.kt", line = 42, startLine = null, severity = Severity.MEDIUM,
             comment = "use longer fence",
             suggestion = "val md = \"\"\"\n```kotlin\nval x = 1\n```\n\"\"\"",
         )
@@ -116,7 +117,7 @@ class CommentBuilderTest {
     @Test
     fun `fence is even longer when suggestion contains four backticks`() {
         val issue = ReviewIssue(
-            path = "Foo.kt", line = 1, startLine = null,
+            path = "Foo.kt", line = 1, startLine = null, severity = Severity.MEDIUM,
             comment = "very tricky",
             suggestion = "weird ```` text",
         )
