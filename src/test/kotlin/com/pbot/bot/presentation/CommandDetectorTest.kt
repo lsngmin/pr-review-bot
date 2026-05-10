@@ -77,4 +77,65 @@ class CommandDetectorTest {
     fun `does not trigger on empty comment`() {
         assertThat(CommandDetector.shouldTrigger("", botMention)).isFalse()
     }
+
+    // --- shouldVerify ---
+
+    @Test
+    fun `verify triggers on slash verify`() {
+        assertThat(CommandDetector.shouldVerify("/verify", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify triggers on mention with verify keyword`() {
+        assertThat(CommandDetector.shouldVerify("@pawranoid verify", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify case-insensitive`() {
+        assertThat(CommandDetector.shouldVerify("@Pawranoid Verify", botMention)).isTrue()
+        assertThat(CommandDetector.shouldVerify("/VERIFY", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify mention with sentence after`() {
+        assertThat(CommandDetector.shouldVerify("@pawranoid verify this please", botMention)).isTrue()
+    }
+
+    @Test
+    fun `verify does not trigger on plain mention without verify keyword`() {
+        // 그냥 @pawranoid 만 있으면 verify 아니라 review 트리거가 됨
+        assertThat(CommandDetector.shouldVerify("@pawranoid", botMention)).isFalse()
+        assertThat(CommandDetector.shouldVerify("@pawranoid review", botMention)).isFalse()
+    }
+
+    @Test
+    fun `verify does not trigger on similar bot name`() {
+        assertThat(CommandDetector.shouldVerify("@pawranoid-staging verify", botMention)).isFalse()
+    }
+
+    // --- review/verify 충돌 방지 ---
+
+    @Test
+    fun `shouldTrigger returns false when comment is a verify command`() {
+        // verify 의도인데 review 트리거되면 안 됨 (verify는 별도 path)
+        assertThat(CommandDetector.shouldTrigger("@pawranoid verify", botMention)).isFalse()
+        assertThat(CommandDetector.shouldTrigger("/verify", botMention)).isFalse()
+    }
+
+    // --- 정규식 단어 경계 검증 ---
+
+    @Test
+    fun `shouldTrigger does not match slash review with extra suffix chars`() {
+        // /reviewer, /review123 같은 부분 일치는 false positive
+        assertThat(CommandDetector.shouldTrigger("/reviewer please", botMention)).isFalse()
+        assertThat(CommandDetector.shouldTrigger("/review123", botMention)).isFalse()
+        assertThat(CommandDetector.shouldTrigger("/review-now", botMention)).isFalse()
+    }
+
+    @Test
+    fun `shouldVerify does not match slash verify with extra suffix chars`() {
+        assertThat(CommandDetector.shouldVerify("/verifying", botMention)).isFalse()
+        assertThat(CommandDetector.shouldVerify("/verify123", botMention)).isFalse()
+        assertThat(CommandDetector.shouldVerify("/verify-now", botMention)).isFalse()
+    }
 }

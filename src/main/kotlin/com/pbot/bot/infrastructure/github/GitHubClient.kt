@@ -123,5 +123,32 @@ class GitHubClient(private val authService: GitHubAuthService) {
             .toBodilessEntity()
     }
 
+    /**
+     * 단일 review comment(인라인 코멘트) 한 건의 본문/메타를 가져온다.
+     * 경로: GET /repos/{repo}/pulls/comments/{id}  (PR 번호 불필요)
+     */
+    fun fetchReviewComment(repo: String, commentId: Long): JsonNode {
+        return rest.get()
+            .uri("https://api.github.com/repos/$repo/pulls/comments/$commentId")
+            .header(HttpHeaders.AUTHORIZATION, bearer())
+            .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
+            .retrieve()
+            .body(JsonNode::class.java)!!
+    }
+
+    /**
+     * review comment 스레드에 답글을 등록한다.
+     * 경로: POST /repos/{repo}/pulls/{n}/comments/{id}/replies
+     */
+    fun replyToReviewComment(repo: String, number: Int, parentCommentId: Long, body: String) {
+        rest.post()
+            .uri("https://api.github.com/repos/$repo/pulls/$number/comments/$parentCommentId/replies")
+            .header(HttpHeaders.AUTHORIZATION, bearer())
+            .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
+            .body(mapOf("body" to body))
+            .retrieve()
+            .toBodilessEntity()
+    }
+
     private fun bearer() = "Bearer ${authService.getInstallationToken()}"
 }
