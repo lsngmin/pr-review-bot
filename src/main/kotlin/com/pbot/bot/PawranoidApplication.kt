@@ -6,8 +6,8 @@ import org.springframework.scheduling.annotation.EnableAsync
 
 @SpringBootApplication
 @EnableAsync
-class PrReviewBotApplication
+class PawranoidApplication
 
 fun main(args: Array<String>) {
-	runApplication<PrReviewBotApplication>(*args)
+    runApplication<PawranoidApplication>(*args)
 }
