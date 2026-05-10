@@ -40,10 +40,16 @@ object WalkthroughBuilder {
         appendLine()
 
         appendLine("### 📂 Files changed")
+        val prefix = commonDirPrefix(walkthrough.files.map { it.path })
+        if (prefix.isNotEmpty()) {
+            appendLine("_Paths relative to_ `$prefix`")
+            appendLine()
+        }
         appendLine("| File | Type | Summary |")
         appendLine("|------|------|---------|")
         walkthrough.files.forEach { file ->
-            appendLine("| `${file.path}` | ${file.type.label} | ${file.summary} |")
+            val display = file.path.removePrefix(prefix)
+            appendLine("| `$display` | ${file.type.label} | ${file.summary} |")
         }
         appendLine()
 
@@ -75,5 +81,26 @@ object WalkthroughBuilder {
         append("---")
         appendLine()
         append("*Triggered by `/review`*")
+    }
+
+    // 표 가독성을 위해 모든 파일이 공유하는 디렉토리 prefix를 한 번만 표기하고 행에서는 제외.
+    // 2개 미만이거나 prefix가 너무 짧으면(절약 효과 < 10자) 그대로 둔다.
+    private fun commonDirPrefix(paths: List<String>): String {
+        if (paths.size < 2) return ""
+        var idx = paths[0].length
+        for (other in paths.drop(1)) {
+            idx = minOf(idx, sharedLength(paths[0], other))
+            if (idx == 0) return ""
+        }
+        val lastSlash = paths[0].substring(0, idx).lastIndexOf('/')
+        if (lastSlash < 0) return ""
+        val prefix = paths[0].substring(0, lastSlash + 1)
+        return if (prefix.length >= 10) prefix else ""
+    }
+
+    private fun sharedLength(a: String, b: String): Int {
+        val len = minOf(a.length, b.length)
+        for (i in 0 until len) if (a[i] != b[i]) return i
+        return len
     }
 }

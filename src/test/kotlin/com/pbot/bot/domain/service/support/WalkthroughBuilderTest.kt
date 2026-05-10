@@ -59,6 +59,56 @@ class WalkthroughBuilderTest {
     }
 
     @Test
+    fun `files table strips common directory prefix`() {
+        val w = Walkthrough(
+            intent = "x",
+            files = listOf(
+                FileChange("src/main/kotlin/com/pbot/bot/domain/model/A.kt", FileChangeType.NEW, "a"),
+                FileChange("src/main/kotlin/com/pbot/bot/presentation/B.kt", FileChangeType.REFACTOR, "b"),
+            ),
+            risks = emptyList(),
+        )
+
+        val md = WalkthroughBuilder.build(w, emptyList())
+
+        assertThat(md).contains("_Paths relative to_ `src/main/kotlin/com/pbot/bot/`")
+        assertThat(md).contains("| `domain/model/A.kt` | ✨ New | a |")
+        assertThat(md).contains("| `presentation/B.kt` | 🔄 Refactor | b |")
+    }
+
+    @Test
+    fun `files table keeps full path when no shared prefix`() {
+        val w = Walkthrough(
+            intent = "x",
+            files = listOf(
+                FileChange("README.md", FileChangeType.DOC, "readme"),
+                FileChange("src/main/kotlin/A.kt", FileChangeType.NEW, "a"),
+            ),
+            risks = emptyList(),
+        )
+
+        val md = WalkthroughBuilder.build(w, emptyList())
+
+        assertThat(md).doesNotContain("Paths relative to")
+        assertThat(md).contains("| `README.md` |")
+        assertThat(md).contains("| `src/main/kotlin/A.kt` |")
+    }
+
+    @Test
+    fun `files table does not strip prefix for single file`() {
+        val w = Walkthrough(
+            intent = "x",
+            files = listOf(FileChange("src/main/kotlin/com/pbot/bot/A.kt", FileChangeType.NEW, "a")),
+            risks = emptyList(),
+        )
+
+        val md = WalkthroughBuilder.build(w, emptyList())
+
+        assertThat(md).doesNotContain("Paths relative to")
+        assertThat(md).contains("| `src/main/kotlin/com/pbot/bot/A.kt` |")
+    }
+
+    @Test
     fun `risks section omitted when empty`() {
         val md = WalkthroughBuilder.build(emptyWalkthrough(), emptyList())
 
