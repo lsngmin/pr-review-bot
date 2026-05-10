@@ -1,9 +1,9 @@
 package com.pbot.bot.domain.service.support
 
-import com.pbot.bot.domain.model.Walkthrough
+import com.pbot.bot.domain.model.PrOverview
 
 /**
- * walkthrough + 평가 + 리뷰 통계를 합쳐 PR Review body 로 게시할 markdown 으로 변환.
+ * overview + 평가 + 리뷰 통계를 합쳐 PR Review body 로 게시할 markdown 으로 변환.
  *
  * 형식:
  * ```
@@ -31,28 +31,28 @@ import com.pbot.bot.domain.model.Walkthrough
  * > **사이즈가 큽니다** ... — ...
  * ```
  *
- * 별도 PR 대화 코멘트로 walkthrough 를 분리해 띄우지 않는다 — Copilot 식으로
+ * 별도 PR 대화 코멘트로 overview 를 분리해 띄우지 않는다 — Copilot 식으로
  * 한 곳(Review body)에 모여 있어야 사용자가 PR을 한 화면에서 파악하기 쉽다.
  */
-object WalkthroughBuilder {
+object PrOverviewBuilder {
 
     fun build(
-        walkthrough: Walkthrough,
+        overview: PrOverview,
         evaluation: List<String> = emptyList(),
-        reviewedFileCount: Int = walkthrough.files.size,
-        totalFileCount: Int = walkthrough.files.size,
+        reviewedFileCount: Int = overview.files.size,
+        totalFileCount: Int = overview.files.size,
         inlineCommentCount: Int = 0,
         droppedCommentCount: Int = 0,
     ): String = buildString {
         appendLine("## Pawranoid PR overview")
         appendLine()
 
-        appendLine(walkthrough.intent)
+        appendLine(overview.intent)
 
-        if (walkthrough.changes.isNotEmpty()) {
+        if (overview.changes.isNotEmpty()) {
             appendLine()
             appendLine("### What Changed")
-            walkthrough.changes.forEach { appendLine("- $it") }
+            overview.changes.forEach { appendLine("- $it") }
         }
 
         appendLine()
@@ -60,14 +60,14 @@ object WalkthroughBuilder {
         append(reviewStatsLine(reviewedFileCount, totalFileCount, inlineCommentCount, droppedCommentCount))
         appendLine()
 
-        if (walkthrough.files.isNotEmpty()) {
+        if (overview.files.isNotEmpty()) {
             appendLine()
             appendLine("<details>")
             appendLine("<summary>파일별 요약</summary>")
             appendLine()
             appendLine("| File | Type | Summary |")
             appendLine("|------|------|---------|")
-            walkthrough.files.forEach { file ->
+            overview.files.forEach { file ->
                 val name = file.path.substringAfterLast('/')
                 appendLine("| `$name` | ${file.type.label} | ${file.summary} |")
             }

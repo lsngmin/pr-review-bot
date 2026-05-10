@@ -25,13 +25,13 @@ data class ReviewIssue(
 /**
  * LLM이 돌려준 코드 리뷰 전체 결과.
  *
- * - [walkthrough]: PR Review body 로 게시될 종합 요약 (overview/changes/files)
+ * - [overview]: PR Review body 로 게시될 종합 요약 (intent/changes/files)
  * - [summary]: 자유 텍스트 응답 슬롯. 메인 코드 리뷰에서는 표시되지 않으나 schema 에
  *   필수로 남겨두어 verify 같은 자유 응답 use case 가 같은 schema 를 재사용한다.
  * - [issues]: 라인별 인라인 코멘트
  */
 data class ReviewResult(
-    val walkthrough: Walkthrough,
+    val overview: PrOverview,
     val summary: String,
     val issues: List<ReviewIssue>,
 )

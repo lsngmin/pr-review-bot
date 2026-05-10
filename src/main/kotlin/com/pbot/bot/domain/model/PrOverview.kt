@@ -8,7 +8,7 @@ package com.pbot.bot.domain.model
  * @property changes 변경 사항 글머리 (한 줄 한 줄, change-level)
  * @property files 파일별 분류 (collapsible 표 데이터)
  */
-data class Walkthrough(
+data class PrOverview(
     val intent: String,
     val changes: List<String>,
     val files: List<FileChange>,

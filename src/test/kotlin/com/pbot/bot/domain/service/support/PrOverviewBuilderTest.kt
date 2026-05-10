@@ -2,15 +2,15 @@ package com.pbot.bot.domain.service.support
 
 import com.pbot.bot.domain.model.FileChange
 import com.pbot.bot.domain.model.FileChangeType
-import com.pbot.bot.domain.model.Walkthrough
+import com.pbot.bot.domain.model.PrOverview
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class WalkthroughBuilderTest {
+class PrOverviewBuilderTest {
 
     @Test
     fun `header is plain text Pawranoid PR overview`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough())
+        val md = PrOverviewBuilder.build(emptyOverview())
 
         assertThat(md).contains("## Pawranoid PR overview")
         assertThat(md).doesNotContain("🐶")
@@ -18,13 +18,13 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `intent appears as floating paragraph just below the header`() {
-        val w = Walkthrough(
+        val w = PrOverview(
             intent = "OAuth migration.",
             changes = emptyList(),
             files = listOf(FileChange("Foo.kt", FileChangeType.REFACTOR, "JWT → OAuth")),
         )
 
-        val md = WalkthroughBuilder.build(w)
+        val md = PrOverviewBuilder.build(w)
 
         assertThat(md).doesNotContain("### ① What changed")
         assertThat(md).contains("OAuth migration.")
@@ -36,20 +36,20 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `changes section omitted when empty`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough())
+        val md = PrOverviewBuilder.build(emptyOverview())
 
         assertThat(md).doesNotContain("### What Changed")
     }
 
     @Test
     fun `changes section renders bullets one per line`() {
-        val w = Walkthrough(
+        val w = PrOverview(
             intent = "x",
             changes = listOf("OAuth refresh 회전 추가", "기존 JWT 검증 제거"),
             files = emptyList(),
         )
 
-        val md = WalkthroughBuilder.build(w)
+        val md = PrOverviewBuilder.build(w)
 
         assertThat(md).contains("### What Changed")
         assertThat(md).contains("- OAuth refresh 회전 추가")
@@ -60,8 +60,8 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `reviewed full coverage with comments`() {
-        val md = WalkthroughBuilder.build(
-            emptyWalkthrough(),
+        val md = PrOverviewBuilder.build(
+            emptyOverview(),
             reviewedFileCount = 23,
             totalFileCount = 23,
             inlineCommentCount = 3,
@@ -73,8 +73,8 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `reviewed full coverage with no comments`() {
-        val md = WalkthroughBuilder.build(
-            emptyWalkthrough(),
+        val md = PrOverviewBuilder.build(
+            emptyOverview(),
             reviewedFileCount = 5,
             totalFileCount = 5,
             inlineCommentCount = 0,
@@ -85,8 +85,8 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `reviewed partial coverage (truncated by maxFiles)`() {
-        val md = WalkthroughBuilder.build(
-            emptyWalkthrough(),
+        val md = PrOverviewBuilder.build(
+            emptyOverview(),
             reviewedFileCount = 20,
             totalFileCount = 25,
             inlineCommentCount = 2,
@@ -97,8 +97,8 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `reviewed mentions dropped only when greater than zero`() {
-        val cleanMd = WalkthroughBuilder.build(emptyWalkthrough(), inlineCommentCount = 2, droppedCommentCount = 0)
-        val droppedMd = WalkthroughBuilder.build(emptyWalkthrough(), inlineCommentCount = 2, droppedCommentCount = 4)
+        val cleanMd = PrOverviewBuilder.build(emptyOverview(), inlineCommentCount = 2, droppedCommentCount = 0)
+        val droppedMd = PrOverviewBuilder.build(emptyOverview(), inlineCommentCount = 2, droppedCommentCount = 4)
 
         assertThat(cleanMd).doesNotContain("보류")
         assertThat(droppedMd).contains("(4개 의견은 라인 매칭 실패로 보류)")
@@ -108,7 +108,7 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `files table omitted when no files`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough())
+        val md = PrOverviewBuilder.build(emptyOverview())
 
         assertThat(md).doesNotContain("<details>")
         assertThat(md).doesNotContain("파일별 요약")
@@ -116,7 +116,7 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `files table wrapped in details summary collapsible block`() {
-        val w = Walkthrough(
+        val w = PrOverview(
             intent = "x",
             changes = emptyList(),
             files = listOf(
@@ -125,7 +125,7 @@ class WalkthroughBuilderTest {
             ),
         )
 
-        val md = WalkthroughBuilder.build(w)
+        val md = PrOverviewBuilder.build(w)
 
         assertThat(md).contains("<details>")
         assertThat(md).contains("<summary>파일별 요약</summary>")
@@ -138,7 +138,7 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `evaluation block omitted when empty`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = emptyList())
+        val md = PrOverviewBuilder.build(emptyOverview(), evaluation = emptyList())
 
         assertThat(md).doesNotContain("> ")
     }
@@ -150,7 +150,7 @@ class WalkthroughBuilderTest {
             "**사이즈가 큽니다** (12 files) — 분리 권장.",
         )
 
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = lines)
+        val md = PrOverviewBuilder.build(emptyOverview(), evaluation = lines)
 
         assertThat(md).contains("> **병합 가능** — 충돌 없음.")
         assertThat(md).contains("> **사이즈가 큽니다** (12 files) — 분리 권장.")
@@ -160,7 +160,7 @@ class WalkthroughBuilderTest {
     fun `evaluation lines separated by empty blockquote line for paragraph break`() {
         val lines = listOf("first line", "second line", "third line")
 
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = lines)
+        val md = PrOverviewBuilder.build(emptyOverview(), evaluation = lines)
 
         val expected = "> first line\n>\n> second line\n>\n> third line"
         assertThat(md).contains(expected)
@@ -170,13 +170,13 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `sections appear in order header, intent, changes, reviewed stats, files details, evaluation`() {
-        val w = Walkthrough(
+        val w = PrOverview(
             intent = "PR overview text",
             changes = listOf("change A"),
             files = listOf(FileChange("Foo.kt", FileChangeType.NEW, "x")),
         )
 
-        val md = WalkthroughBuilder.build(
+        val md = PrOverviewBuilder.build(
             w,
             evaluation = listOf("**병합 가능** — clean."),
             reviewedFileCount = 1,
@@ -202,7 +202,7 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `no legacy sections remain`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough())
+        val md = PrOverviewBuilder.build(emptyOverview())
 
         assertThat(md).doesNotContain("What changed")
         assertThat(md).doesNotContain("Files changed")
@@ -213,7 +213,7 @@ class WalkthroughBuilderTest {
         assertThat(md).doesNotContain("\n---")
     }
 
-    private fun emptyWalkthrough() = Walkthrough(
+    private fun emptyOverview() = PrOverview(
         intent = "x",
         changes = emptyList(),
         files = emptyList(),

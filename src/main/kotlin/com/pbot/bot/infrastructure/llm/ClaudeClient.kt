@@ -28,7 +28,7 @@ class ClaudeClient(
     override fun review(diff: String): ReviewResult {
         val tool = mapOf(
             "name" to "submit_code_review",
-            "description" to "Submit a structured code review with walkthrough, summary and inline issues.",
+            "description" to "Submit a structured code review with overview, summary and inline issues.",
             "input_schema" to ReviewSchema.ROOT,
         )
 

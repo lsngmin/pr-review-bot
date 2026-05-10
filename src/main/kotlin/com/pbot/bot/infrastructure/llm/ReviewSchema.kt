@@ -19,15 +19,15 @@ object ReviewSchema {
     val ROOT: Map<String, Any> = mapOf(
         "type" to "object",
         "properties" to mapOf(
-            "walkthrough" to walkthroughSchema(),
+            "overview" to overviewSchema(),
             "summary" to mapOf("type" to "string"),
             "issues" to issuesSchema(),
         ),
-        "required" to listOf("walkthrough", "summary", "issues"),
+        "required" to listOf("overview", "summary", "issues"),
         "additionalProperties" to false,
     )
 
-    private fun walkthroughSchema() = mapOf(
+    private fun overviewSchema() = mapOf(
         "type" to "object",
         "properties" to mapOf(
             "intent" to mapOf("type" to "string"),

@@ -6,7 +6,7 @@ import com.pbot.bot.domain.service.support.CommentBuilder
 import com.pbot.bot.domain.service.support.DiffAnnotator
 import com.pbot.bot.domain.service.support.PathMatcher
 import com.pbot.bot.domain.service.support.PrEvaluator
-import com.pbot.bot.domain.service.support.WalkthroughBuilder
+import com.pbot.bot.domain.service.support.PrOverviewBuilder
 import com.pbot.bot.infrastructure.github.GitHubClient
 import com.pbot.bot.infrastructure.github.PullRequestFile
 import org.slf4j.LoggerFactory
@@ -66,9 +66,9 @@ class ReviewService(
             CommentBuilder.build(issue, actualPath)
         }
 
-        // walkthrough + 검토 통계 + 평가 한 markdown 으로 합쳐 PR Review body 로 게시.
-        val combinedBody = WalkthroughBuilder.build(
-            walkthrough = result.walkthrough,
+        // overview + 검토 통계 + 평가 한 markdown 으로 합쳐 PR Review body 로 게시.
+        val combinedBody = PrOverviewBuilder.build(
+            overview = result.overview,
             evaluation = prEvaluation,
             reviewedFileCount = filesForLlm.size,
             totalFileCount = allFiles.size,
