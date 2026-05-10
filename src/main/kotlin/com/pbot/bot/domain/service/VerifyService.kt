@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service
  * 봇이 자신이 단 인라인 리뷰의 정당성을 별도 LLM으로 cross-verify 한다.
  *
  * 사용자 흐름:
- * 1. 봇이 인라인 리뷰 작성 → 사용자가 답글에 `/verify` 또는 `@pawranoid verify`
+ * 1. 봇이 인라인 리뷰 작성 → 사용자가 답글에 `@pawranoid verify`
  * 2. webhook → 이 서비스가 비동기로 처리
  * 3. 원본 코멘트 + 주변 코드(±[CONTEXT_RADIUS]줄)를 다른 LLM(Claude)에게 보여주고 의견 받음
  * 4. 자연스러운 한국어 답글로 게시 (라벨/배지 없이)
