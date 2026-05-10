@@ -1,7 +1,6 @@
 package com.pbot.bot.domain.service.support
 
-import com.pbot.bot.domain.model.ReviewIssue
-import com.pbot.bot.domain.model.Severity
+import com.pbot.bot.domain.model.ProcessNote
 import com.pbot.bot.domain.model.Walkthrough
 
 /**
@@ -16,22 +15,28 @@ import com.pbot.bot.domain.model.Walkthrough
  *
  * ### 📂 Files changed
  * | File | Type | Summary |
- * ...
+ * | Foo.kt | New | ... |
  *
- * ### ⚠️ Risk highlights      (risks가 있을 때만)
+ * ### 📋 Process notes      (notes가 있을 때만)
+ * - **MEDIUM** — ...
+ *
+ * ### ⚠️ Risk highlights    (risks가 있을 때만)
  * - 🔴 HIGH — ...
- *
- * ### 🔍 Reviewed
- * - N issues found: 🔴 a · 🟡 b · 🟢 c   (또는 No issues found.)
- * - M suggestions with auto-fix available  (있을 때만)
- *
- * ---
- * *Triggered by `/review`*
  * ```
+ *
+ * 표 폭을 줄이기 위해 File 컬럼은 디렉토리를 떼고 파일명만 표시.
+ * 같은 파일명이 다른 디렉토리에 있는 경우는 (이 프로젝트엔 거의 없으므로) 우선 무시.
+ *
+ * Process notes는 PR 자체(사이즈/제목/커밋/테스트)에 대한 결정적 평가로,
+ * "Files changed" 다음에 위치 — 변경 목록을 본 직후 "이 PR 자체가 잘 만들어졌나"
+ * 를 함께 보게 하기 위함.
  */
 object WalkthroughBuilder {
 
-    fun build(walkthrough: Walkthrough, issues: List<ReviewIssue>): String = buildString {
+    fun build(
+        walkthrough: Walkthrough,
+        processNotes: List<ProcessNote> = emptyList(),
+    ): String = buildString {
         appendLine("## 🐶 Pawranoid Walkthrough")
         appendLine()
 
@@ -40,18 +45,23 @@ object WalkthroughBuilder {
         appendLine()
 
         appendLine("### 📂 Files changed")
-        val prefix = commonDirPrefix(walkthrough.files.map { it.path })
-        if (prefix.isNotEmpty()) {
-            appendLine("_Paths relative to_ `$prefix`")
-            appendLine()
-        }
         appendLine("| File | Type | Summary |")
         appendLine("|------|------|---------|")
         walkthrough.files.forEach { file ->
-            val display = file.path.removePrefix(prefix)
-            appendLine("| `$display` | ${file.type.label} | ${file.summary} |")
+            val name = file.path.substringAfterLast('/')
+            appendLine("| `$name` | ${file.type.label} | ${file.summary} |")
         }
         appendLine()
+
+        if (processNotes.isNotEmpty()) {
+            appendLine("### 📋 Process notes")
+            processNotes
+                .sortedBy { it.severity.ordinal } // HIGH 먼저
+                .forEach { note ->
+                    appendLine("- **${note.severity.name}** — ${note.message}")
+                }
+            appendLine()
+        }
 
         if (walkthrough.risks.isNotEmpty()) {
             appendLine("### ⚠️ Risk highlights")
@@ -59,48 +69,6 @@ object WalkthroughBuilder {
                 val location = risk.location?.let { " (`$it`)" } ?: ""
                 appendLine("- ${risk.severity.emoji} **${risk.severity.name}** — ${risk.description}$location")
             }
-            appendLine()
         }
-
-        appendLine("### 🔍 Reviewed")
-        if (issues.isEmpty()) {
-            appendLine("No issues found. Looks good.")
-        } else {
-            val high = issues.count { it.severity == Severity.HIGH }
-            val med = issues.count { it.severity == Severity.MEDIUM }
-            val low = issues.count { it.severity == Severity.LOW }
-            appendLine("- **${issues.size} issues found**: 🔴 $high · 🟡 $med · 🟢 $low")
-
-            val suggestions = issues.count { !it.suggestion.isNullOrBlank() }
-            if (suggestions > 0) {
-                appendLine("- **$suggestions suggestions** with auto-fix available")
-            }
-        }
-        appendLine()
-
-        append("---")
-        appendLine()
-        append("*Triggered by `/review`*")
-    }
-
-    // 표 가독성을 위해 모든 파일이 공유하는 디렉토리 prefix를 한 번만 표기하고 행에서는 제외.
-    // 2개 미만이거나 prefix가 너무 짧으면(절약 효과 < 10자) 그대로 둔다.
-    private fun commonDirPrefix(paths: List<String>): String {
-        if (paths.size < 2) return ""
-        var idx = paths[0].length
-        for (other in paths.drop(1)) {
-            idx = minOf(idx, sharedLength(paths[0], other))
-            if (idx == 0) return ""
-        }
-        val lastSlash = paths[0].substring(0, idx).lastIndexOf('/')
-        if (lastSlash < 0) return ""
-        val prefix = paths[0].substring(0, lastSlash + 1)
-        return if (prefix.length >= 10) prefix else ""
-    }
-
-    private fun sharedLength(a: String, b: String): Int {
-        val len = minOf(a.length, b.length)
-        for (i in 0 until len) if (a[i] != b[i]) return i
-        return len
     }
 }

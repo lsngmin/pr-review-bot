@@ -33,14 +33,14 @@ enum class FileChangeType {
 
     val label: String
         get() = when (this) {
-            REFACTOR -> "🔄 Refactor"
-            NEW -> "✨ New"
-            FIX -> "🐛 Fix"
-            CONFIG -> "⚙️ Config"
-            DEPENDENCY -> "📦 Dep"
-            TEST -> "🧪 Test"
-            DOC -> "📚 Doc"
-            STYLE -> "💄 Style"
+            REFACTOR -> "Refactor"
+            NEW -> "New"
+            FIX -> "Fix"
+            CONFIG -> "Config"
+            DEPENDENCY -> "Dep"
+            TEST -> "Test"
+            DOC -> "Doc"
+            STYLE -> "Style"
         }
 }
 

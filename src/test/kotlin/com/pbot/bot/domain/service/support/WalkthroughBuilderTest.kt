@@ -2,7 +2,7 @@ package com.pbot.bot.domain.service.support
 
 import com.pbot.bot.domain.model.FileChange
 import com.pbot.bot.domain.model.FileChangeType
-import com.pbot.bot.domain.model.ReviewIssue
+import com.pbot.bot.domain.model.ProcessNote
 import com.pbot.bot.domain.model.RiskHighlight
 import com.pbot.bot.domain.model.Severity
 import com.pbot.bot.domain.model.Walkthrough
@@ -11,18 +11,9 @@ import org.junit.jupiter.api.Test
 
 class WalkthroughBuilderTest {
 
-    private fun issue(severity: Severity, suggestion: String? = null) = ReviewIssue(
-        path = "Foo.kt",
-        line = 1,
-        startLine = null,
-        severity = severity,
-        comment = "...",
-        suggestion = suggestion,
-    )
-
     @Test
     fun `header always present`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), emptyList())
+        val md = WalkthroughBuilder.build(emptyWalkthrough())
 
         assertThat(md).contains("## 🐶 Pawranoid Walkthrough")
     }
@@ -35,82 +26,106 @@ class WalkthroughBuilderTest {
             risks = emptyList(),
         )
 
-        val md = WalkthroughBuilder.build(w, emptyList())
+        val md = WalkthroughBuilder.build(w)
 
         assertThat(md).contains("### 📝 What changed")
         assertThat(md).contains("OAuth migration.")
     }
 
     @Test
-    fun `files table renders type label and summary`() {
+    fun `files table renders filename only, plain-text type, and summary`() {
         val w = Walkthrough(
             intent = "x",
             files = listOf(
-                FileChange("Foo.kt", FileChangeType.NEW, "신규 OAuth callback"),
-                FileChange("Bar.kt", FileChangeType.REFACTOR, "JWT 제거"),
+                FileChange("src/main/kotlin/com/pbot/bot/domain/Foo.kt", FileChangeType.NEW, "신규 OAuth callback"),
+                FileChange("src/main/kotlin/com/pbot/bot/domain/Bar.kt", FileChangeType.REFACTOR, "JWT 제거"),
             ),
             risks = emptyList(),
         )
 
-        val md = WalkthroughBuilder.build(w, emptyList())
+        val md = WalkthroughBuilder.build(w)
 
-        assertThat(md).contains("| `Foo.kt` | ✨ New | 신규 OAuth callback |")
-        assertThat(md).contains("| `Bar.kt` | 🔄 Refactor | JWT 제거 |")
+        // 디렉토리는 떨어지고 파일명만, type은 이모지 없는 평문.
+        assertThat(md).contains("| `Foo.kt` | New | 신규 OAuth callback |")
+        assertThat(md).contains("| `Bar.kt` | Refactor | JWT 제거 |")
     }
 
     @Test
-    fun `files table strips common directory prefix`() {
+    fun `files table shows root-level filename as-is`() {
         val w = Walkthrough(
             intent = "x",
-            files = listOf(
-                FileChange("src/main/kotlin/com/pbot/bot/domain/model/A.kt", FileChangeType.NEW, "a"),
-                FileChange("src/main/kotlin/com/pbot/bot/presentation/B.kt", FileChangeType.REFACTOR, "b"),
-            ),
+            files = listOf(FileChange("README.md", FileChangeType.DOC, "readme update")),
             risks = emptyList(),
         )
 
-        val md = WalkthroughBuilder.build(w, emptyList())
+        val md = WalkthroughBuilder.build(w)
 
-        assertThat(md).contains("_Paths relative to_ `src/main/kotlin/com/pbot/bot/`")
-        assertThat(md).contains("| `domain/model/A.kt` | ✨ New | a |")
-        assertThat(md).contains("| `presentation/B.kt` | 🔄 Refactor | b |")
+        assertThat(md).contains("| `README.md` | Doc | readme update |")
+    }
+
+    // --- process notes ---
+
+    @Test
+    fun `process notes section omitted when empty`() {
+        val md = WalkthroughBuilder.build(emptyWalkthrough(), processNotes = emptyList())
+
+        assertThat(md).doesNotContain("Process notes")
     }
 
     @Test
-    fun `files table keeps full path when no shared prefix`() {
-        val w = Walkthrough(
-            intent = "x",
-            files = listOf(
-                FileChange("README.md", FileChangeType.DOC, "readme"),
-                FileChange("src/main/kotlin/A.kt", FileChangeType.NEW, "a"),
-            ),
-            risks = emptyList(),
+    fun `process notes section renders severity label and message in plain text`() {
+        val notes = listOf(
+            ProcessNote(Severity.MEDIUM, "PR 사이즈가 큼"),
+            ProcessNote(Severity.LOW, "테스트 동반"),
         )
 
-        val md = WalkthroughBuilder.build(w, emptyList())
+        val md = WalkthroughBuilder.build(emptyWalkthrough(), processNotes = notes)
 
-        assertThat(md).doesNotContain("Paths relative to")
-        assertThat(md).contains("| `README.md` |")
-        assertThat(md).contains("| `src/main/kotlin/A.kt` |")
+        assertThat(md).contains("### 📋 Process notes")
+        assertThat(md).contains("- **MEDIUM** — PR 사이즈가 큼")
+        assertThat(md).contains("- **LOW** — 테스트 동반")
     }
 
     @Test
-    fun `files table does not strip prefix for single file`() {
-        val w = Walkthrough(
-            intent = "x",
-            files = listOf(FileChange("src/main/kotlin/com/pbot/bot/A.kt", FileChangeType.NEW, "a")),
-            risks = emptyList(),
+    fun `process notes ordered HIGH then MEDIUM then LOW`() {
+        val notes = listOf(
+            ProcessNote(Severity.LOW, "low one"),
+            ProcessNote(Severity.HIGH, "high one"),
+            ProcessNote(Severity.MEDIUM, "med one"),
         )
 
-        val md = WalkthroughBuilder.build(w, emptyList())
+        val md = WalkthroughBuilder.build(emptyWalkthrough(), processNotes = notes)
 
-        assertThat(md).doesNotContain("Paths relative to")
-        assertThat(md).contains("| `src/main/kotlin/com/pbot/bot/A.kt` |")
+        val highIdx = md.indexOf("high one")
+        val medIdx = md.indexOf("med one")
+        val lowIdx = md.indexOf("low one")
+        assertThat(highIdx).isLessThan(medIdx)
+        assertThat(medIdx).isLessThan(lowIdx)
     }
+
+    @Test
+    fun `process notes section appears between Files changed and Risk highlights`() {
+        val w = Walkthrough(
+            intent = "x",
+            files = listOf(FileChange("Foo.kt", FileChangeType.NEW, "x")),
+            risks = listOf(RiskHighlight(Severity.HIGH, "위험", null)),
+        )
+        val notes = listOf(ProcessNote(Severity.MEDIUM, "process note"))
+
+        val md = WalkthroughBuilder.build(w, processNotes = notes)
+
+        val filesIdx = md.indexOf("### 📂 Files changed")
+        val processIdx = md.indexOf("### 📋 Process notes")
+        val risksIdx = md.indexOf("### ⚠️ Risk highlights")
+        assertThat(filesIdx).isLessThan(processIdx)
+        assertThat(processIdx).isLessThan(risksIdx)
+    }
+
+    // --- risks ---
 
     @Test
     fun `risks section omitted when empty`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), emptyList())
+        val md = WalkthroughBuilder.build(emptyWalkthrough())
 
         assertThat(md).doesNotContain("Risk highlights")
     }
@@ -126,63 +141,22 @@ class WalkthroughBuilderTest {
             ),
         )
 
-        val md = WalkthroughBuilder.build(w, emptyList())
+        val md = WalkthroughBuilder.build(w)
 
         assertThat(md).contains("### ⚠️ Risk highlights")
         assertThat(md).contains("- 🔴 **HIGH** — 인증 로직 교체 (`AuthService.kt:42`)")
         assertThat(md).contains("- 🟡 **MEDIUM** — 외부 의존성 추가")
     }
 
-    @Test
-    fun `Reviewed section shows No issues found when empty`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), emptyList())
-
-        assertThat(md).contains("### 🔍 Reviewed")
-        assertThat(md).contains("No issues found")
-    }
+    // --- removed legacy sections ---
 
     @Test
-    fun `Reviewed section shows severity-bucketed counts`() {
-        val issues = listOf(
-            issue(Severity.HIGH),
-            issue(Severity.HIGH),
-            issue(Severity.MEDIUM),
-            issue(Severity.LOW),
-        )
+    fun `no Reviewed section, no Triggered footer, no horizontal rule`() {
+        val md = WalkthroughBuilder.build(emptyWalkthrough())
 
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), issues)
-
-        assertThat(md).contains("**4 issues found**: 🔴 2 · 🟡 1 · 🟢 1")
-    }
-
-    @Test
-    fun `Reviewed shows suggestion count when any issue has suggestion`() {
-        val issues = listOf(
-            issue(Severity.MEDIUM, suggestion = "fix code"),
-            issue(Severity.MEDIUM, suggestion = null),
-            issue(Severity.LOW, suggestion = "another fix"),
-        )
-
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), issues)
-
-        assertThat(md).contains("**2 suggestions** with auto-fix available")
-    }
-
-    @Test
-    fun `Reviewed omits suggestion line when none have suggestions`() {
-        val issues = listOf(issue(Severity.MEDIUM, suggestion = null))
-
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), issues)
-
-        assertThat(md).doesNotContain("suggestions with auto-fix")
-    }
-
-    @Test
-    fun `footer is consistent`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough(), emptyList())
-
-        assertThat(md).contains("---")
-        assertThat(md).contains("*Triggered by `/review`*")
+        assertThat(md).doesNotContain("Reviewed")
+        assertThat(md).doesNotContain("Triggered by")
+        assertThat(md).doesNotContain("\n---")
     }
 
     private fun emptyWalkthrough() = Walkthrough(
