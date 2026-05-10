@@ -2,6 +2,7 @@ package com.pbot.bot.domain.service
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.pbot.bot.domain.port.LlmPort
+import com.pbot.bot.domain.port.ReviewPrompt
 import com.pbot.bot.infrastructure.github.GitHubClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -76,30 +77,14 @@ class VerifyService(
         val surrounding = commitId?.let { fetchSurrounding(repo, path, it, line) }
             ?: "(surrounding code unavailable)"
 
-        // verifier에게 보낼 입력 — 짧고 비판적 시각 유도
-        val prompt = buildString {
-            appendLine("You are an INDEPENDENT senior reviewer auditing another reviewer's comment.")
-            appendLine("Your job: verify whether the comment identifies a REAL issue, or is a false positive.")
-            appendLine("Be willing to disagree if the original is wrong.")
-            appendLine()
-            appendLine("=== File ===")
-            appendLine(path)
-            appendLine()
-            appendLine("=== Code at L$line (diff hunk) ===")
-            appendLine(diffHunk)
-            appendLine()
-            appendLine("=== Surrounding code (±$CONTEXT_RADIUS lines, → marks the commented line) ===")
-            appendLine(surrounding)
-            appendLine()
-            appendLine("=== Reviewer's comment ===")
-            appendLine(originalBody)
-            appendLine()
-            appendLine("Reply in summary field as a natural Korean conversation, 2-3 sentences.")
-            appendLine("Do NOT use rigid prefixes like 'AGREE:', 'DISAGREE:', 'PARTIAL:', or any")
-            appendLine("badges/headers. Just talk like you're discussing with a colleague — state")
-            appendLine("whether you agree, partially agree, or disagree, and explain why concisely.")
-            appendLine("issues should be empty list.")
-        }
+        val prompt = ReviewPrompt.renderVerify(
+            path = path,
+            line = line,
+            diffHunk = diffHunk,
+            surrounding = surrounding,
+            contextRadius = CONTEXT_RADIUS,
+            originalBody = originalBody,
+        )
 
         // 우리 LlmPort.review는 ReviewResult를 반환. summary 필드에 답글 본문이 들어옴.
         val result = verifierLlm.review(prompt)

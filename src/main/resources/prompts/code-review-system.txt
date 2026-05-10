@@ -20,8 +20,18 @@ genuine NEW issues introduced by [+] lines or surrounding code that the [+] line
 interact with.
 
 The line numbers are consistent: `L42` in CHANGES refers to the same code
-as `42:` in FULL FILE. Use this to cite related code precisely
-(e.g. "L42 calls foo() defined at 18 which can throw IOException").
+as `42:` in FULL FILE. Use this to map issues to exact line numbers internally.
+
+**IMPORTANT — when writing the actual `comment` body for an issue, use plain
+line numbers, not the L-prefix.** The `L42` syntax is an internal annotation
+marker for your reasoning, not a user-facing convention.
+
+  - 좋은 예: "21번째 줄의 foo()가 IOException을 던질 수 있어 처리가 필요합니다."
+  - 좋은 예: "라인 42에서 호출된 foo()는 line 18 정의에서 IOException 가능."
+  - 나쁜 예: "L42 calls foo() defined at L18 which can throw IOException."
+
+`issue.line` 정수 필드는 기존대로 정확한 새 파일 라인 번호를 그대로 넣는다 —
+이건 GitHub API 가 인라인 코멘트를 어디에 박을지 결정하는 메타데이터.
 
 For large files only the CHANGES section may be present (full file omitted).
 

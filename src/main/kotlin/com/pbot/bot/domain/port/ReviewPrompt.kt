@@ -14,6 +14,28 @@ package com.pbot.bot.domain.port
 object ReviewPrompt {
     val SYSTEM: String = load("/prompts/code-review-system.txt")
 
+    /**
+     * Verify(cross-check) 흐름의 시스템 프롬프트 템플릿.
+     * `{path}`, `{line}`, `{diffHunk}`, `{surrounding}`, `{contextRadius}`, `{originalBody}`
+     * 자리에 호출 시점 값을 채워 넣는다 — [renderVerify] 참고.
+     */
+    val VERIFY_TEMPLATE: String = load("/prompts/verify-system.txt")
+
+    fun renderVerify(
+        path: String,
+        line: Int,
+        diffHunk: String,
+        surrounding: String,
+        contextRadius: Int,
+        originalBody: String,
+    ): String = VERIFY_TEMPLATE
+        .replace("{path}", path)
+        .replace("{line}", line.toString())
+        .replace("{diffHunk}", diffHunk)
+        .replace("{surrounding}", surrounding)
+        .replace("{contextRadius}", contextRadius.toString())
+        .replace("{originalBody}", originalBody)
+
     private fun load(path: String): String {
         return ReviewPrompt::class.java.getResource(path)?.readText()
             ?: error("Prompt resource not found: $path")
