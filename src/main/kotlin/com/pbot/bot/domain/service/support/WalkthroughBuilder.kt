@@ -11,12 +11,12 @@ import com.pbot.bot.domain.model.Walkthrough
  *
  * <intent paragraph>
  *
- * ### 변경사항
+ * ### What Changed
  * - change 1
  * - change 2
  *
- * ### 검토된 변경 사항
- * Pawranoid는 이 풀 리퀘스트에서 변경된 파일 N개 중 M개를 검토하고 K개의 댓글을 생성했습니다.
+ * ### What Reviewed
+ * 변경된 파일 N개를 모두 살펴봤어요. 인라인 코멘트는 K개 남겼습니다.
  *
  * <details>
  * <summary>파일별 요약</summary>
@@ -51,19 +51,13 @@ object WalkthroughBuilder {
 
         if (walkthrough.changes.isNotEmpty()) {
             appendLine()
-            appendLine("### 변경사항")
+            appendLine("### What Changed")
             walkthrough.changes.forEach { appendLine("- $it") }
         }
 
         appendLine()
-        appendLine("### 검토된 변경 사항")
-        append(
-            "Pawranoid는 이 풀 리퀘스트에서 변경된 파일 ${totalFileCount}개 중 ${reviewedFileCount}개를 " +
-                "검토하고 ${inlineCommentCount}개의 댓글을 생성했습니다.",
-        )
-        if (droppedCommentCount > 0) {
-            append(" (${droppedCommentCount}개 의견은 라인 매칭 실패로 보류)")
-        }
+        appendLine("### What Reviewed")
+        append(reviewStatsLine(reviewedFileCount, totalFileCount, inlineCommentCount, droppedCommentCount))
         appendLine()
 
         if (walkthrough.files.isNotEmpty()) {
@@ -88,5 +82,34 @@ object WalkthroughBuilder {
                 if (i < evaluation.size - 1) appendLine(">")
             }
         }
+    }
+
+    /**
+     * Copilot 식 영문 통계 ("Copilot reviewed N out of M ... and generated K comments")
+     * 와 차별화하기 위해 한국어 conversational 톤으로 작성. 부분 검토(maxFiles cap)
+     * 인 경우 "N개 중 M개" 형식으로 분기.
+     */
+    private fun reviewStatsLine(
+        reviewedFileCount: Int,
+        totalFileCount: Int,
+        inlineCommentCount: Int,
+        droppedCommentCount: Int,
+    ): String {
+        val reviewedPart = if (reviewedFileCount == totalFileCount) {
+            "변경된 파일 ${totalFileCount}개를 모두 살펴봤어요"
+        } else {
+            "변경된 파일 ${totalFileCount}개 중 ${reviewedFileCount}개를 살펴봤어요"
+        }
+        val commentsPart = if (inlineCommentCount > 0) {
+            "인라인 코멘트는 ${inlineCommentCount}개 남겼습니다"
+        } else {
+            "인라인 코멘트는 따로 남기지 않았습니다"
+        }
+        val droppedPart = if (droppedCommentCount > 0) {
+            " (${droppedCommentCount}개 의견은 라인 매칭 실패로 보류)"
+        } else {
+            ""
+        }
+        return "$reviewedPart. $commentsPart.$droppedPart"
     }
 }

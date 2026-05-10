@@ -32,13 +32,13 @@ class WalkthroughBuilderTest {
         assertThat(md.indexOf("OAuth migration.")).isGreaterThan(md.indexOf("## Pawranoid PR overview"))
     }
 
-    // --- changes (### 변경사항) ---
+    // --- changes (### What Changed) ---
 
     @Test
     fun `changes section omitted when empty`() {
         val md = WalkthroughBuilder.build(emptyWalkthrough())
 
-        assertThat(md).doesNotContain("### 변경사항")
+        assertThat(md).doesNotContain("### What Changed")
     }
 
     @Test
@@ -51,15 +51,15 @@ class WalkthroughBuilderTest {
 
         val md = WalkthroughBuilder.build(w)
 
-        assertThat(md).contains("### 변경사항")
+        assertThat(md).contains("### What Changed")
         assertThat(md).contains("- OAuth refresh 회전 추가")
         assertThat(md).contains("- 기존 JWT 검증 제거")
     }
 
-    // --- reviewed changes stats ---
+    // --- review stats (### What Reviewed) ---
 
     @Test
-    fun `reviewed changes line shows file and comment counts`() {
+    fun `reviewed full coverage with comments`() {
         val md = WalkthroughBuilder.build(
             emptyWalkthrough(),
             reviewedFileCount = 23,
@@ -67,14 +67,36 @@ class WalkthroughBuilderTest {
             inlineCommentCount = 3,
         )
 
-        assertThat(md).contains("### 검토된 변경 사항")
-        assertThat(md).contains(
-            "Pawranoid는 이 풀 리퀘스트에서 변경된 파일 23개 중 23개를 검토하고 3개의 댓글을 생성했습니다.",
-        )
+        assertThat(md).contains("### What Reviewed")
+        assertThat(md).contains("변경된 파일 23개를 모두 살펴봤어요. 인라인 코멘트는 3개 남겼습니다.")
     }
 
     @Test
-    fun `reviewed changes mentions dropped comments only when greater than zero`() {
+    fun `reviewed full coverage with no comments`() {
+        val md = WalkthroughBuilder.build(
+            emptyWalkthrough(),
+            reviewedFileCount = 5,
+            totalFileCount = 5,
+            inlineCommentCount = 0,
+        )
+
+        assertThat(md).contains("변경된 파일 5개를 모두 살펴봤어요. 인라인 코멘트는 따로 남기지 않았습니다.")
+    }
+
+    @Test
+    fun `reviewed partial coverage (truncated by maxFiles)`() {
+        val md = WalkthroughBuilder.build(
+            emptyWalkthrough(),
+            reviewedFileCount = 20,
+            totalFileCount = 25,
+            inlineCommentCount = 2,
+        )
+
+        assertThat(md).contains("변경된 파일 25개 중 20개를 살펴봤어요. 인라인 코멘트는 2개 남겼습니다.")
+    }
+
+    @Test
+    fun `reviewed mentions dropped only when greater than zero`() {
         val cleanMd = WalkthroughBuilder.build(emptyWalkthrough(), inlineCommentCount = 2, droppedCommentCount = 0)
         val droppedMd = WalkthroughBuilder.build(emptyWalkthrough(), inlineCommentCount = 2, droppedCommentCount = 4)
 
@@ -124,13 +146,13 @@ class WalkthroughBuilderTest {
     @Test
     fun `evaluation block renders each line with blockquote prefix`() {
         val lines = listOf(
-            "**머지 가능** — 충돌 없음.",
+            "**병합 가능** — 충돌 없음.",
             "**사이즈가 큽니다** (12 files) — 분리 권장.",
         )
 
         val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = lines)
 
-        assertThat(md).contains("> **머지 가능** — 충돌 없음.")
+        assertThat(md).contains("> **병합 가능** — 충돌 없음.")
         assertThat(md).contains("> **사이즈가 큽니다** (12 files) — 분리 권장.")
     }
 
@@ -156,7 +178,7 @@ class WalkthroughBuilderTest {
 
         val md = WalkthroughBuilder.build(
             w,
-            evaluation = listOf("**머지 가능** — clean."),
+            evaluation = listOf("**병합 가능** — clean."),
             reviewedFileCount = 1,
             totalFileCount = 1,
             inlineCommentCount = 0,
@@ -164,10 +186,10 @@ class WalkthroughBuilderTest {
 
         val headerIdx = md.indexOf("## Pawranoid PR overview")
         val intentIdx = md.indexOf("PR overview text")
-        val changesIdx = md.indexOf("### 변경사항")
-        val statsIdx = md.indexOf("### 검토된 변경 사항")
+        val changesIdx = md.indexOf("### What Changed")
+        val statsIdx = md.indexOf("### What Reviewed")
         val detailsIdx = md.indexOf("<details>")
-        val evalIdx = md.indexOf("> **머지 가능**")
+        val evalIdx = md.indexOf("> **병합 가능**")
 
         assertThat(headerIdx).isLessThan(intentIdx)
         assertThat(intentIdx).isLessThan(changesIdx)

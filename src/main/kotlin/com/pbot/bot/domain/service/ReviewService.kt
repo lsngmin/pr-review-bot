@@ -41,10 +41,14 @@ class ReviewService(
             log.warn("PR {}#{} has {} files, only first {} sent to LLM", repo, number, allFiles.size, maxFiles)
         }
 
-        // PR 자체에 대한 결정적 평가 (머지 상태/사이즈/테스트). LLM 실패와 무관하게
+        // PR 자체에 대한 결정적 평가 (메타 다듬기/머지/사이즈/테스트). LLM 실패와 무관하게
         // 사용자에게 도달하도록 본 리뷰 흐름과 분리해 미리 계산. 실패 시 빈 리스트 fallback.
         val prEvaluation = runCatching {
-            PrEvaluator.evaluate(gitHubClient.fetchPullRequest(repo, number), allFiles)
+            PrEvaluator.evaluate(
+                meta = gitHubClient.fetchPullRequest(repo, number),
+                files = allFiles,
+                commitMessages = gitHubClient.fetchCommitMessages(repo, number),
+            )
         }.getOrElse {
             log.warn("PR evaluation failed for {}#{}", repo, number, it)
             emptyList()

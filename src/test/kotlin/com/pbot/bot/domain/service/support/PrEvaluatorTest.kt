@@ -7,9 +7,10 @@ import org.junit.jupiter.api.Test
 
 class PrEvaluatorTest {
 
+    // 기본값은 모든 메타 룰을 통과하는 깨끗한 PR. 개별 테스트가 필요한 인자만 override.
     private fun meta(
-        title: String = "x",
-        body: String = "x",
+        title: String = "Add OAuth refresh-token rotation flow",
+        body: String = "이 PR은 기존 JWT 인증을 OAuth로 교체합니다. 테스트는 OAuthFlowTest 참고.",
         additions: Int = 50,
         deletions: Int = 10,
         changedFiles: Int = 3,
@@ -25,7 +26,7 @@ class PrEvaluatorTest {
     fun `merge clean is described positively and merge line always present`() {
         val lines = PrEvaluator.evaluate(meta(), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines.first()).startsWith("**머지 가능**").contains("충돌 없")
+        assertThat(lines.first()).startsWith("**병합 가능**").contains("충돌 없")
     }
 
     @Test
@@ -110,7 +111,7 @@ class PrEvaluatorTest {
         val lines = PrEvaluator.evaluate(meta(), files = listOf(prodFile(), testFile()))
 
         assertThat(lines).anySatisfy {
-            assertThat(it).startsWith("**테스트 함께 변경됨**")
+            assertThat(it).startsWith("**테스트 반영됨**")
         }
     }
 
@@ -132,19 +133,96 @@ class PrEvaluatorTest {
         }
     }
 
+    // --- meta line (combined title/description/commit) ---
+
+    @Test
+    fun `meta line omitted when title description and commits all clean`() {
+        val lines = PrEvaluator.evaluate(
+            meta(),
+            files = listOf(prodFile(), testFile()),
+            commitMessages = listOf("feat: add OAuth refresh-token rotation flow"),
+        )
+
+        assertThat(lines).noneSatisfy {
+            assertThat(it).contains("PR 메타")
+        }
+    }
+
+    @Test
+    fun `meta line flags vague title only`() {
+        val lines = PrEvaluator.evaluate(
+            meta(title = "wip"),
+            files = listOf(prodFile(), testFile()),
+            commitMessages = listOf("feat: real change"),
+        )
+
+        assertThat(lines.first()).startsWith("**PR 메타 다듬기**").contains("제목").doesNotContain("설명").doesNotContain("커밋 메시지")
+    }
+
+    @Test
+    fun `meta line flags short description only`() {
+        val lines = PrEvaluator.evaluate(
+            meta(body = ""),
+            files = listOf(prodFile(), testFile()),
+            commitMessages = listOf("feat: real change"),
+        )
+
+        assertThat(lines.first()).contains("설명").doesNotContain("제목").doesNotContain("커밋 메시지")
+    }
+
+    @Test
+    fun `meta line flags vague commit messages only`() {
+        val lines = PrEvaluator.evaluate(
+            meta(),
+            files = listOf(prodFile(), testFile()),
+            commitMessages = listOf("wip", "fix"),
+        )
+
+        assertThat(lines.first()).contains("커밋 메시지").doesNotContain("제목").doesNotContain("설명")
+    }
+
+    @Test
+    fun `meta line combines all three when all are flagged`() {
+        val lines = PrEvaluator.evaluate(
+            meta(title = "update", body = ""),
+            files = listOf(prodFile(), testFile()),
+            commitMessages = listOf("wip"),
+        )
+
+        val first = lines.first()
+        assertThat(first).startsWith("**PR 메타 다듬기**")
+        assertThat(first).contains("제목").contains("설명").contains("커밋 메시지")
+    }
+
+    @Test
+    fun `meta line appears above merge line when present`() {
+        val lines = PrEvaluator.evaluate(
+            meta(title = "wip"),
+            files = listOf(prodFile(), testFile()),
+            commitMessages = listOf("feat: real change"),
+        )
+
+        val metaIdx = lines.indexOfFirst { it.startsWith("**PR 메타") }
+        val mergeIdx = lines.indexOfFirst { it.startsWith("**병합") || it.startsWith("**충돌") || it.startsWith("**Draft") }
+        assertThat(metaIdx).isGreaterThanOrEqualTo(0)
+        assertThat(metaIdx).isLessThan(mergeIdx)
+    }
+
     // --- combined ---
 
     @Test
-    fun `dirty large no-test PR returns three lines in fixed order`() {
+    fun `dirty large no-test PR with vague meta returns four lines in fixed order`() {
         val files = (1..20).map { prodFile("src/main/kotlin/F$it.kt") }
         val lines = PrEvaluator.evaluate(
-            meta(mergeableState = "dirty", additions = 600, deletions = 100, changedFiles = 20),
+            meta(title = "wip", body = "", mergeableState = "dirty", additions = 600, deletions = 100, changedFiles = 20),
             files,
+            commitMessages = listOf("wip"),
         )
 
-        assertThat(lines).hasSize(3)
-        assertThat(lines[0]).startsWith("**충돌 있음**")
-        assertThat(lines[1]).startsWith("**사이즈가 큽니다**")
-        assertThat(lines[2]).startsWith("**테스트 변경 없음**")
+        assertThat(lines).hasSize(4)
+        assertThat(lines[0]).startsWith("**PR 메타 다듬기**")
+        assertThat(lines[1]).startsWith("**충돌 있음**")
+        assertThat(lines[2]).startsWith("**사이즈가 큽니다**")
+        assertThat(lines[3]).startsWith("**테스트 변경 없음**")
     }
 }
