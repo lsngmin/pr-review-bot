@@ -86,10 +86,10 @@ class VerifyService(
             originalBody = originalBody,
         )
 
-        // 우리 LlmPort.review는 ReviewResult를 반환. summary 필드에 답글 본문이 들어옴.
-        val result = verifierLlm.review(prompt)
+        // verify 는 평문 응답 — code review schema/system prompt 의 영향을 받지 않는다.
+        val reply = verifierLlm.verify(prompt)
         log.info("Verify reply produced for path={} line={}", path, line)
-        return result.summary
+        return reply
     }
 
     /**

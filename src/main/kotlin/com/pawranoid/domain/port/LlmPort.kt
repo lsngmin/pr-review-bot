@@ -38,4 +38,16 @@ interface LlmPort {
      * @return summary와 라인별 issues를 담은 리뷰 결과
      */
     fun review(diff: String): ReviewResult
+
+    /**
+     * 자유 텍스트 응답을 받는 free-form LLM 호출.
+     *
+     * verify(cross-check) 같이 구조화된 결과가 아닌 한국어 답글 한 토막만 필요한 use case 용.
+     * 코드 리뷰용 system prompt 와 schema 구속을 받지 않고 오직 [prompt] 만 user message 로
+     * 보내고 모델 응답 텍스트를 그대로 반환한다.
+     *
+     * @param prompt 호출 측이 완전히 책임지는 단일 프롬프트 (시스템/유저 분리 없음)
+     * @return 모델이 생성한 plain text. 호출 측이 그대로 사용/마크다운 렌더링.
+     */
+    fun verify(prompt: String): String
 }

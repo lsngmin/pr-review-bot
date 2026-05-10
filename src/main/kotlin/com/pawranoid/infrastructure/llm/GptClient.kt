@@ -49,4 +49,22 @@ class GptClient(
 
         return mapper.readValue(content)
     }
+
+    override fun verify(prompt: String): String {
+        // verify 흐름 — 코드 리뷰 system prompt 와 json_schema 구속 없이 평문으로 응답.
+        val requestBody = mapOf(
+            "model" to "gpt-5.4",
+            "messages" to listOf(
+                mapOf("role" to "user", "content" to prompt),
+            ),
+        )
+
+        return rest.post()
+            .uri("https://api.openai.com/v1/chat/completions")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer $openaiKey")
+            .header(HttpHeaders.CONTENT_TYPE, "application/json")
+            .body(requestBody)
+            .retrieve()
+            .body(JsonNode::class.java)!!["choices"][0]["message"]["content"].asText()
+    }
 }

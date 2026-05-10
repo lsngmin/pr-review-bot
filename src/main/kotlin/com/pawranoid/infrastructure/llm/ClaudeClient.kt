@@ -59,4 +59,31 @@ class ClaudeClient(
             ?: error("Claude response missing tool_use block: $response")
         return mapper.treeToValue(toolUse["input"], ReviewResult::class.java)
     }
+
+    override fun verify(prompt: String): String {
+        // verify 흐름 — 코드 리뷰 system prompt 나 tool_use 없이 평문 응답으로 받는다.
+        val requestBody = mapOf(
+            "model" to "claude-sonnet-4-6",
+            "max_tokens" to 1024,
+            "messages" to listOf(
+                mapOf("role" to "user", "content" to prompt),
+            ),
+        )
+
+        val response = rest.post()
+            .uri("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", apiKey)
+            .header("anthropic-version", "2023-06-01")
+            .header(HttpHeaders.CONTENT_TYPE, "application/json")
+            .body(requestBody)
+            .retrieve()
+            .body(JsonNode::class.java)!!
+
+        // 응답 형식: {"content": [{"type":"text", "text": "..."}]}
+        return response["content"]
+            .firstOrNull { it["type"].asText() == "text" }
+            ?.get("text")
+            ?.asText()
+            ?: error("Claude response missing text block: $response")
+    }
 }
