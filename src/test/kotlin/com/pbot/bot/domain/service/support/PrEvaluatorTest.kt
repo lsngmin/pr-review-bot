@@ -26,42 +26,48 @@ class PrEvaluatorTest {
     fun `merge clean is described positively and merge line always present`() {
         val lines = PrEvaluator.evaluate(meta(), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines.first()).startsWith("**병합 가능**").contains("충돌 없")
+        assertThat(lines).anySatisfy {
+            assertThat(it).startsWith("**병합 가능**").contains("충돌 없")
+        }
     }
 
     @Test
     fun `merge dirty asks user to rebase`() {
         val lines = PrEvaluator.evaluate(meta(mergeableState = "dirty"), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines.first()).startsWith("**충돌 있음**").contains("rebase")
+        assertThat(lines).anySatisfy {
+            assertThat(it).startsWith("**충돌 있음**").contains("rebase")
+        }
     }
 
     @Test
     fun `merge behind suggests rebase`() {
         val lines = PrEvaluator.evaluate(meta(mergeableState = "behind"), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines.first()).contains("앞서 있음").contains("rebase")
+        assertThat(lines).anySatisfy {
+            assertThat(it).contains("앞서 있음").contains("rebase")
+        }
     }
 
     @Test
     fun `merge blocked describes protection rule`() {
         val lines = PrEvaluator.evaluate(meta(mergeableState = "blocked"), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines.first()).contains("차단")
+        assertThat(lines).anySatisfy { assertThat(it).contains("차단") }
     }
 
     @Test
     fun `merge unstable warns about CI`() {
         val lines = PrEvaluator.evaluate(meta(mergeableState = "unstable"), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines.first()).contains("CI")
+        assertThat(lines).anySatisfy { assertThat(it).contains("CI") }
     }
 
     @Test
     fun `merge null reports computing state`() {
         val lines = PrEvaluator.evaluate(meta(mergeableState = null), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines.first()).contains("계산 중")
+        assertThat(lines).anySatisfy { assertThat(it).contains("계산 중") }
     }
 
     // --- size ---
@@ -136,16 +142,14 @@ class PrEvaluatorTest {
     // --- meta line (combined title/description/commit) ---
 
     @Test
-    fun `meta line omitted when title description and commits all clean`() {
+    fun `meta line shows positive headline when all clean`() {
         val lines = PrEvaluator.evaluate(
             meta(),
             files = listOf(prodFile(), testFile()),
             commitMessages = listOf("feat: add OAuth refresh-token rotation flow"),
         )
 
-        assertThat(lines).noneSatisfy {
-            assertThat(it).contains("PR 메타")
-        }
+        assertThat(lines.first()).startsWith("**PR 메타 깔끔**")
     }
 
     @Test

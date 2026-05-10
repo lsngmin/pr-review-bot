@@ -21,23 +21,27 @@ object PrEvaluator {
         files: List<PullRequestFile>,
         commitMessages: List<String> = emptyList(),
     ): List<String> = buildList {
-        metaLine(meta, commitMessages)?.let { add(it) }
+        add(metaLine(meta, commitMessages))
         add(mergeLine(meta.mergeableState))
         sizeLine(meta, files.size)?.let { add(it) }
         testCoverageLine(files)?.let { add(it) }
     }
 
     /**
-     * 제목·설명·커밋 메시지 품질을 한 줄로 합쳐 안내. 셋 다 깔끔하면 null 반환해 omit.
+     * 제목·설명·커밋 메시지 품질을 한 줄로 합쳐 안내.
+     * 셋 다 깔끔하면 긍정 라인, 하나라도 모호하면 다듬기 안내.
      */
-    private fun metaLine(meta: PullRequestMeta, commitMessages: List<String>): String? {
+    private fun metaLine(meta: PullRequestMeta, commitMessages: List<String>): String {
         val flagged = mutableListOf<String>()
         if (isVagueTitle(meta.title)) flagged += "제목"
         if (isShortDescription(meta.body)) flagged += "설명"
         if (commitMessages.any(::isVagueCommit)) flagged += "커밋 메시지"
-        if (flagged.isEmpty()) return null
-        val items = flagged.joinToString(", ")
-        return "**PR 메타 다듬기** — $items 가 충분히 구체적이지 않아요. 변경 의도를 한 줄 더 풀어 적어주시면 좋겠습니다."
+        return if (flagged.isEmpty()) {
+            "**PR 메타 깔끔** — 제목, 설명, 커밋 메시지 모두 의도가 잘 드러나요."
+        } else {
+            val items = flagged.joinToString(", ")
+            "**PR 메타 다듬기** — $items 가 충분히 구체적이지 않아요. 변경 의도를 한 줄 더 풀어 적어주시면 좋겠습니다."
+        }
     }
 
     private fun isVagueTitle(title: String): Boolean {
