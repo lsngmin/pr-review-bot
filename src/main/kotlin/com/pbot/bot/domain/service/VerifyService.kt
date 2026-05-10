@@ -2,6 +2,7 @@ package com.pbot.bot.domain.service
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.pbot.bot.domain.port.LlmPort
+import com.pbot.bot.domain.service.support.VerdictBadge
 import com.pbot.bot.infrastructure.github.GitHubClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -15,8 +16,8 @@ import org.springframework.stereotype.Service
  * 사용자 흐름:
  * 1. 봇이 인라인 리뷰 작성 → 사용자가 답글에 `/verify` 또는 `@pawranoid verify`
  * 2. webhook → 이 서비스가 비동기로 처리
- * 3. 원본 코멘트 + 현재 코드를 다른 LLM(Claude)에게 보여주고 의견 받음
- * 4. 그 결과를 답글로 게시
+ * 3. 원본 코멘트 + 주변 코드(±[CONTEXT_RADIUS]줄)를 다른 LLM(Claude)에게 보여주고 의견 받음
+ * 4. 그 결과를 답글로 게시 (verdict 배지 prefix 포함)
  *
  * 사용 모델:
  * - 주 리뷰는 OpenAI(GptClient, @Primary)
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service
 class VerifyService(
     private val gitHubClient: GitHubClient,
     @Qualifier("claudeClient") private val verifierLlm: LlmPort,
+    private val history: VerifyHistoryService,
     @Value("\${github.bot.mention}") private val botMention: String,
 ) {
     private val log = LoggerFactory.getLogger(VerifyService::class.java)
@@ -33,6 +35,18 @@ class VerifyService(
 
     @Async
     fun verifyReviewComment(repo: String, prNumber: Int, parentCommentId: Long) {
+        if (!history.tryClaim(parentCommentId)) {
+            log.info("Skip verify: comment={} already in flight", parentCommentId)
+            return
+        }
+        try {
+            runVerify(repo, prNumber, parentCommentId)
+        } finally {
+            history.release(parentCommentId)
+        }
+    }
+
+    private fun runVerify(repo: String, prNumber: Int, parentCommentId: Long) {
         log.info("Verifying review comment: repo={} pr=#{} commentId={}", repo, prNumber, parentCommentId)
         val original = gitHubClient.fetchReviewComment(repo, parentCommentId)
 
@@ -43,16 +57,25 @@ class VerifyService(
             return
         }
 
-        val verdict = runVerification(original)
-        gitHubClient.replyToReviewComment(repo, prNumber, parentCommentId, verdict)
+        val verdictBody = runCatching { runVerification(repo, original) }
+            .getOrElse { e ->
+                log.error("Verification LLM call failed for comment={}", parentCommentId, e)
+                "### 🤔 UNCLEAR\n\nVerifier 호출이 실패해 판단하지 못했습니다. (`${e.javaClass.simpleName}`)"
+            }
+        gitHubClient.replyToReviewComment(repo, prNumber, parentCommentId, verdictBody)
         log.info("Verification reply posted to comment={}", parentCommentId)
     }
 
-    private fun runVerification(original: JsonNode): String {
+    private fun runVerification(repo: String, original: JsonNode): String {
         val path = original["path"].asText()
         val line = original["line"]?.asInt() ?: original["original_line"]?.asInt() ?: -1
         val originalBody = original["body"].asText()
         val diffHunk = original["diff_hunk"]?.asText() ?: "(no diff hunk available)"
+        val commitId = original["commit_id"]?.asText()
+            ?: original["original_commit_id"]?.asText()
+
+        val surrounding = commitId?.let { fetchSurrounding(repo, path, it, line) }
+            ?: "(surrounding code unavailable)"
 
         // verifier에게 보낼 입력 — 짧고 비판적 시각 유도
         val prompt = buildString {
@@ -65,6 +88,9 @@ class VerifyService(
             appendLine()
             appendLine("=== Code at L$line (diff hunk) ===")
             appendLine(diffHunk)
+            appendLine()
+            appendLine("=== Surrounding code (±$CONTEXT_RADIUS lines, → marks the commented line) ===")
+            appendLine(surrounding)
             appendLine()
             appendLine("=== Reviewer's comment ===")
             appendLine(originalBody)
@@ -79,6 +105,33 @@ class VerifyService(
 
         // 우리 LlmPort.review는 ReviewResult를 반환. summary 필드에 verdict 텍스트 들어옴.
         val result = verifierLlm.review(prompt)
-        return result.summary
+        val verdict = VerdictBadge.detect(result.summary)
+        log.info("Verify verdict={} for path={} line={}", verdict.label, path, line)
+        return VerdictBadge.render(result.summary)
+    }
+
+    /**
+     * 코멘트가 달린 라인 ±[CONTEXT_RADIUS] 줄을 줄번호와 함께 추출.
+     * 대상 라인은 화살표(→)로 강조해 verifier가 어디에 집중할지 명시.
+     */
+    private fun fetchSurrounding(repo: String, path: String, ref: String, line: Int): String? {
+        if (line <= 0) return null
+        val full = runCatching { gitHubClient.fetchFileContent(repo, path, ref) }
+            .getOrElse {
+                log.warn("Failed to fetch file content for verify context: path={} ref={}", path, ref, it)
+                return null
+            }
+        val lines = full.lines()
+        if (lines.isEmpty()) return null
+        val from = maxOf(1, line - CONTEXT_RADIUS)
+        val to = minOf(lines.size, line + CONTEXT_RADIUS)
+        return (from..to).joinToString("\n") { ln ->
+            val mark = if (ln == line) "→" else " "
+            "%s%4d: %s".format(mark, ln, lines[ln - 1])
+        }
+    }
+
+    private companion object {
+        const val CONTEXT_RADIUS = 20
     }
 }
