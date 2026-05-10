@@ -50,9 +50,12 @@ object PrEvaluator {
     private fun testCoverageLine(files: List<PullRequestFile>): String? {
         val production = files.filter { isProductionFile(it.path) }
         if (production.isEmpty()) return null
-        if (files.any { isTestFile(it.path) }) return null
-        return "**테스트 변경 없음** — production 코드 ${production.size}개가 바뀌었는데 테스트는 그대로예요. " +
-            "회귀 방지용으로 테스트 추가를 권장합니다."
+        return if (files.any { isTestFile(it.path) }) {
+            "**테스트 함께 변경됨** — production 변경에 맞춰 테스트도 같이 갱신됐어요."
+        } else {
+            "**테스트 변경 없음** — production 코드 ${production.size}개가 바뀌었는데 테스트는 그대로예요. " +
+                "회귀 방지용으로 테스트 추가를 권장합니다."
+        }
     }
 
     private fun isTestFile(path: String): Boolean =

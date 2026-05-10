@@ -25,7 +25,6 @@ class PrEvaluatorTest {
     fun `merge clean is described positively and merge line always present`() {
         val lines = PrEvaluator.evaluate(meta(), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines).hasSize(1)
         assertThat(lines.first()).startsWith("**머지 가능**").contains("충돌 없")
     }
 
@@ -107,11 +106,11 @@ class PrEvaluatorTest {
     }
 
     @Test
-    fun `production change with tests omits test line (no positive note)`() {
+    fun `production change with tests adds positive test-included line`() {
         val lines = PrEvaluator.evaluate(meta(), files = listOf(prodFile(), testFile()))
 
-        assertThat(lines).noneSatisfy {
-            assertThat(it).contains("테스트")
+        assertThat(lines).anySatisfy {
+            assertThat(it).startsWith("**테스트 함께 변경됨**")
         }
     }
 
