@@ -7,30 +7,7 @@ class CommandDetectorTest {
 
     private val botMention = "pawranoid"
 
-    // --- 슬래시 커맨드 ---
-
-    @Test
-    fun `triggers on bare slash command`() {
-        assertThat(CommandDetector.shouldTrigger("/review", botMention)).isTrue()
-    }
-
-    @Test
-    fun `triggers on slash command with leading whitespace`() {
-        assertThat(CommandDetector.shouldTrigger("   /review", botMention)).isTrue()
-    }
-
-    @Test
-    fun `triggers on slash command with arguments`() {
-        assertThat(CommandDetector.shouldTrigger("/review --security", botMention)).isTrue()
-    }
-
-    @Test
-    fun `does not trigger on slash command in middle of comment`() {
-        // 슬래시 커맨드는 코멘트 시작에만 — 코드 인용 등에서 false positive 방지
-        assertThat(CommandDetector.shouldTrigger("see also /review later", botMention)).isFalse()
-    }
-
-    // --- @멘션 ---
+    // --- @멘션 (review trigger) ---
 
     @Test
     fun `triggers on bare mention`() {
@@ -68,7 +45,7 @@ class CommandDetectorTest {
     }
 
     @Test
-    fun `does not trigger on plain text without mention or slash`() {
+    fun `does not trigger on plain text without mention`() {
         assertThat(CommandDetector.shouldTrigger("good change", botMention)).isFalse()
         assertThat(CommandDetector.shouldTrigger("review this please", botMention)).isFalse()
     }
@@ -78,12 +55,21 @@ class CommandDetectorTest {
         assertThat(CommandDetector.shouldTrigger("", botMention)).isFalse()
     }
 
-    // --- shouldVerify ---
+    // --- slash commands no longer trigger ---
 
     @Test
-    fun `verify triggers on slash verify`() {
-        assertThat(CommandDetector.shouldVerify("/verify", botMention)).isTrue()
+    fun `slash review no longer triggers`() {
+        assertThat(CommandDetector.shouldTrigger("/review", botMention)).isFalse()
+        assertThat(CommandDetector.shouldTrigger("/review --security", botMention)).isFalse()
     }
+
+    @Test
+    fun `slash verify no longer triggers verify path`() {
+        assertThat(CommandDetector.shouldVerify("/verify", botMention)).isFalse()
+        assertThat(CommandDetector.shouldVerify("/VERIFY", botMention)).isFalse()
+    }
+
+    // --- shouldVerify ---
 
     @Test
     fun `verify triggers on mention with verify keyword`() {
@@ -93,7 +79,6 @@ class CommandDetectorTest {
     @Test
     fun `verify case-insensitive`() {
         assertThat(CommandDetector.shouldVerify("@Pawranoid Verify", botMention)).isTrue()
-        assertThat(CommandDetector.shouldVerify("/VERIFY", botMention)).isTrue()
     }
 
     @Test
@@ -116,26 +101,8 @@ class CommandDetectorTest {
     // --- review/verify 충돌 방지 ---
 
     @Test
-    fun `shouldTrigger returns false when comment is a verify command`() {
+    fun `shouldTrigger returns false when comment is a verify mention`() {
         // verify 의도인데 review 트리거되면 안 됨 (verify는 별도 path)
         assertThat(CommandDetector.shouldTrigger("@pawranoid verify", botMention)).isFalse()
-        assertThat(CommandDetector.shouldTrigger("/verify", botMention)).isFalse()
-    }
-
-    // --- 정규식 단어 경계 검증 ---
-
-    @Test
-    fun `shouldTrigger does not match slash review with extra suffix chars`() {
-        // /reviewer, /review123 같은 부분 일치는 false positive
-        assertThat(CommandDetector.shouldTrigger("/reviewer please", botMention)).isFalse()
-        assertThat(CommandDetector.shouldTrigger("/review123", botMention)).isFalse()
-        assertThat(CommandDetector.shouldTrigger("/review-now", botMention)).isFalse()
-    }
-
-    @Test
-    fun `shouldVerify does not match slash verify with extra suffix chars`() {
-        assertThat(CommandDetector.shouldVerify("/verifying", botMention)).isFalse()
-        assertThat(CommandDetector.shouldVerify("/verify123", botMention)).isFalse()
-        assertThat(CommandDetector.shouldVerify("/verify-now", botMention)).isFalse()
     }
 }
