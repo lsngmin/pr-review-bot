@@ -1,3 +1,5 @@
+<img width="256" height="256" alt="bot-avatar (3)" src="https://github.com/user-attachments/assets/99739849-f26f-4fdc-8073-f7be14487562" />
+
 # pr-review-bot
 
 GitHub PR을 자동 리뷰하고, 그 리뷰를 다른 LLM으로 다시 검증하는 Spring Boot 기반 GitHub App.
