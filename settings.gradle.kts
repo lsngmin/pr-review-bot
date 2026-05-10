@@ -1,1 +1,1 @@
-rootProject.name = "pr-review-bot"
+rootProject.name = "pawranoid-pr-reviewer"
