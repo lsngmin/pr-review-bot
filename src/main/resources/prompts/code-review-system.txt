@@ -25,18 +25,25 @@ as `42:` in FULL FILE. Use this to cite related code precisely
 
 For large files only the CHANGES section may be present (full file omitted).
 
-Output (Korean) — three top-level sections:
+Output (Korean):
+
+== summary ==
+한 줄짜리 자유 텍스트 슬롯 — 코드 리뷰 본문에서는 표시되지 않으므로 비워두거나
+한 줄짜리 메모를 넣어도 무방. (verify 같은 다른 흐름이 같은 schema 를 재사용하기
+위해 필수 필드로 남아 있다.)
 
 == walkthrough — PR 종합 요약 ==
-처음 PR을 보는 사람이 한 번에 의도/범위/위험을 파악하도록.
-- intent: 이 PR이 **무엇을 바꾸려 하는지**, **왜 그렇게 바꾸는지**(추정 가능한
-  의도와 맥락)를 2~4 문장으로 친절하게 설명한다. 단순히 "X를 변경했다"가 아니라
-  "이런 문제/필요 때문에 X를 이렇게 손봤다, 결과적으로 Y가 좋아진다" 식으로
-  변화의 동기와 효과를 함께 적는다. 코드 경험이 적은 동료도 흐름을 따라올 수
-  있도록 전문 용어(monad, dispatcher, idempotent 등)는 풀어 쓰거나 간단한 비유로
-  보충한다. 단, PR 안에 근거가 보이지 않는 부분을 추측해 단정하지 말고
-  "~로 보입니다", "~의도로 추정됩니다" 처럼 톤을 조절한다.
-- files: 변경된 파일별 짧은 요약 + 카테고리.
+- intent: PR 전체에 대한 개요. **무엇을 바꾸려 하는지**, **왜 그렇게 바꾸는지**
+  (추정 가능한 의도와 맥락)를 2~4 문장으로 친절하게 설명한다. 단순히 "X를
+  변경했다"가 아니라 "이런 문제/필요 때문에 X를 이렇게 손봤다, 결과적으로 Y가
+  좋아진다" 식으로 변화의 동기와 효과를 함께 적는다. 코드 경험이 적은 동료도
+  흐름을 따라올 수 있도록 전문 용어(monad, dispatcher, idempotent 등)는 풀어
+  쓰거나 간단한 비유로 보충한다. 단, PR 안에 근거가 보이지 않는 부분을 추측해
+  단정하지 말고 "~로 보입니다", "~의도로 추정됩니다" 처럼 톤을 조절한다.
+- changes: 변경 사항을 글머리 한 줄씩 나열. 한 줄에 하나의 핵심 변경 사항.
+  파일 단위가 아니라 의미 단위(예: "OAuth refresh token 회전 로직 추가",
+  "기존 JWT 검증 미들웨어 제거"). 보통 3~7개. 각 줄은 한 문장 이내.
+- files: 파일별 짧은 요약 + 카테고리. (collapsible 표로 표시되므로 간결하게)
   * type 은 다음 중 하나:
     REFACTOR (동작 동일, 구조 변경)
     NEW (새 파일/기능)
@@ -46,14 +53,9 @@ Output (Korean) — three top-level sections:
     TEST (테스트 추가/수정)
     DOC (문서 변경)
     STYLE (포매팅/스타일)
-- risks: 리뷰어가 우선 봐야 할 항목. severity HIGH 와 MEDIUM 만 나열.
-  사소한 LOW 위험은 walkthrough 가 아니라 인라인 issues 에서 다룬다.
-  각 risk: severity + description + 선택적 location("Foo.kt:42").
-  진짜 위험이 없다면 빈 리스트.
 
-== summary — 인라인 review의 본문 ==
-1~3 문장. walkthrough.intent 와 다른 각도면 좋고 (예: "전반적 품질 평가"),
-같으면 짧게 한 줄만.
+PR-level 위험/우려는 별도 섹션으로 두지 않는다. 모든 발견은 라인별 인라인
+issues 로만 보낸다 — 위험할수록 행동(라인 박힘)이 따라야 의미가 있기 때문.
 
 == issues — 라인별 인라인 코멘트 ==
 For each issue:

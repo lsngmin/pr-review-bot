@@ -6,7 +6,6 @@ import com.pbot.bot.domain.service.support.CommentBuilder
 import com.pbot.bot.domain.service.support.DiffAnnotator
 import com.pbot.bot.domain.service.support.PathMatcher
 import com.pbot.bot.domain.service.support.PrEvaluator
-import com.pbot.bot.domain.service.support.SummaryBuilder
 import com.pbot.bot.domain.service.support.WalkthroughBuilder
 import com.pbot.bot.infrastructure.github.GitHubClient
 import com.pbot.bot.infrastructure.github.PullRequestFile
@@ -62,13 +61,19 @@ class ReviewService(
             val actualPath = PathMatcher.match(issue.path, filesForLlm)?.path ?: issue.path
             CommentBuilder.build(issue, actualPath)
         }
-        val summary = SummaryBuilder.mergeDroppedIntoSummary(result.summary, droppedIssues)
 
-        val walkthroughMd = WalkthroughBuilder.build(result.walkthrough, prEvaluation)
-        gitHubClient.postPrComment(repo, number, walkthroughMd)
-        gitHubClient.postReview(repo, number, summary, comments)
+        // walkthrough + 검토 통계 + 평가 한 markdown 으로 합쳐 PR Review body 로 게시.
+        val combinedBody = WalkthroughBuilder.build(
+            walkthrough = result.walkthrough,
+            evaluation = prEvaluation,
+            reviewedFileCount = filesForLlm.size,
+            totalFileCount = allFiles.size,
+            inlineCommentCount = comments.size,
+            droppedCommentCount = droppedIssues.size,
+        )
+        gitHubClient.postReview(repo, number, combinedBody, comments)
         log.info(
-            "Review posted for {}#{}: walkthrough({} eval lines) + {} inline comments, {} dropped",
+            "Review posted for {}#{}: combined body({} eval lines) + {} inline comments, {} dropped",
             repo, number, prEvaluation.size, comments.size, droppedIssues.size,
         )
     }

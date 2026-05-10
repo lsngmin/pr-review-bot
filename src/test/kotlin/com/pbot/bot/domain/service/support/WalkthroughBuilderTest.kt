@@ -2,8 +2,6 @@ package com.pbot.bot.domain.service.support
 
 import com.pbot.bot.domain.model.FileChange
 import com.pbot.bot.domain.model.FileChangeType
-import com.pbot.bot.domain.model.RiskHighlight
-import com.pbot.bot.domain.model.Severity
 import com.pbot.bot.domain.model.Walkthrough
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -11,57 +9,110 @@ import org.junit.jupiter.api.Test
 class WalkthroughBuilderTest {
 
     @Test
-    fun `header always present`() {
+    fun `header is plain text Pawranoid PR overview`() {
         val md = WalkthroughBuilder.build(emptyWalkthrough())
 
-        assertThat(md).contains("## 🐶 Pawranoid Review")
+        assertThat(md).contains("## Pawranoid PR overview")
+        assertThat(md).doesNotContain("🐶")
     }
 
     @Test
-    fun `intent appears under What changed section`() {
+    fun `intent appears as floating paragraph just below the header`() {
         val w = Walkthrough(
             intent = "OAuth migration.",
+            changes = emptyList(),
             files = listOf(FileChange("Foo.kt", FileChangeType.REFACTOR, "JWT → OAuth")),
-            risks = emptyList(),
         )
 
         val md = WalkthroughBuilder.build(w)
 
-        assertThat(md).contains("### ① What changed")
+        assertThat(md).doesNotContain("### ① What changed")
         assertThat(md).contains("OAuth migration.")
+        // intent 가 헤더 바로 다음 등장.
+        assertThat(md.indexOf("OAuth migration.")).isGreaterThan(md.indexOf("## Pawranoid PR overview"))
+    }
+
+    // --- changes (### 변경사항) ---
+
+    @Test
+    fun `changes section omitted when empty`() {
+        val md = WalkthroughBuilder.build(emptyWalkthrough())
+
+        assertThat(md).doesNotContain("### 변경사항")
     }
 
     @Test
-    fun `files table renders filename only, plain-text type, and summary`() {
+    fun `changes section renders bullets one per line`() {
         val w = Walkthrough(
             intent = "x",
+            changes = listOf("OAuth refresh 회전 추가", "기존 JWT 검증 제거"),
+            files = emptyList(),
+        )
+
+        val md = WalkthroughBuilder.build(w)
+
+        assertThat(md).contains("### 변경사항")
+        assertThat(md).contains("- OAuth refresh 회전 추가")
+        assertThat(md).contains("- 기존 JWT 검증 제거")
+    }
+
+    // --- reviewed changes stats ---
+
+    @Test
+    fun `reviewed changes line shows file and comment counts`() {
+        val md = WalkthroughBuilder.build(
+            emptyWalkthrough(),
+            reviewedFileCount = 23,
+            totalFileCount = 23,
+            inlineCommentCount = 3,
+        )
+
+        assertThat(md).contains("### 검토된 변경 사항")
+        assertThat(md).contains(
+            "Pawranoid는 이 풀 리퀘스트에서 변경된 파일 23개 중 23개를 검토하고 3개의 댓글을 생성했습니다.",
+        )
+    }
+
+    @Test
+    fun `reviewed changes mentions dropped comments only when greater than zero`() {
+        val cleanMd = WalkthroughBuilder.build(emptyWalkthrough(), inlineCommentCount = 2, droppedCommentCount = 0)
+        val droppedMd = WalkthroughBuilder.build(emptyWalkthrough(), inlineCommentCount = 2, droppedCommentCount = 4)
+
+        assertThat(cleanMd).doesNotContain("보류")
+        assertThat(droppedMd).contains("(4개 의견은 라인 매칭 실패로 보류)")
+    }
+
+    // --- collapsible files table ---
+
+    @Test
+    fun `files table omitted when no files`() {
+        val md = WalkthroughBuilder.build(emptyWalkthrough())
+
+        assertThat(md).doesNotContain("<details>")
+        assertThat(md).doesNotContain("파일별 요약")
+    }
+
+    @Test
+    fun `files table wrapped in details summary collapsible block`() {
+        val w = Walkthrough(
+            intent = "x",
+            changes = emptyList(),
             files = listOf(
                 FileChange("src/main/kotlin/com/pbot/bot/domain/Foo.kt", FileChangeType.NEW, "신규 OAuth callback"),
                 FileChange("src/main/kotlin/com/pbot/bot/domain/Bar.kt", FileChangeType.REFACTOR, "JWT 제거"),
             ),
-            risks = emptyList(),
         )
 
         val md = WalkthroughBuilder.build(w)
 
+        assertThat(md).contains("<details>")
+        assertThat(md).contains("<summary>파일별 요약</summary>")
         assertThat(md).contains("| `Foo.kt` | New | 신규 OAuth callback |")
         assertThat(md).contains("| `Bar.kt` | Refactor | JWT 제거 |")
+        assertThat(md).contains("</details>")
     }
 
-    @Test
-    fun `files table shows root-level filename as-is`() {
-        val w = Walkthrough(
-            intent = "x",
-            files = listOf(FileChange("README.md", FileChangeType.DOC, "readme update")),
-            risks = emptyList(),
-        )
-
-        val md = WalkthroughBuilder.build(w)
-
-        assertThat(md).contains("| `README.md` | Doc | readme update |")
-    }
-
-    // --- evaluation blockquote (under Files changed) ---
+    // --- evaluation blockquote (at the very end) ---
 
     @Test
     fun `evaluation block omitted when empty`() {
@@ -85,77 +136,64 @@ class WalkthroughBuilderTest {
 
     @Test
     fun `evaluation lines separated by empty blockquote line for paragraph break`() {
-        // GitHub markdown 에서 연속된 `>` 라인은 한 문단으로 합쳐짐 — 사이에 빈 `>` 가 있어야
-        // 라인이 시각적으로 분리됨. 이 테스트는 그 분리자가 들어가는지 검증.
         val lines = listOf("first line", "second line", "third line")
 
         val md = WalkthroughBuilder.build(emptyWalkthrough(), evaluation = lines)
 
-        // 첫째 ↔ 둘째 사이, 둘째 ↔ 셋째 사이에 `>` 만 있는 라인이 등장.
         val expected = "> first line\n>\n> second line\n>\n> third line"
         assertThat(md).contains(expected)
     }
 
+    // --- ordering invariant ---
+
     @Test
-    fun `evaluation block sits between Files changed table and Risk highlights`() {
+    fun `sections appear in order header, intent, changes, reviewed stats, files details, evaluation`() {
         val w = Walkthrough(
-            intent = "x",
+            intent = "PR overview text",
+            changes = listOf("change A"),
             files = listOf(FileChange("Foo.kt", FileChangeType.NEW, "x")),
-            risks = listOf(RiskHighlight(Severity.HIGH, "위험", null)),
         )
-        val lines = listOf("**머지 가능** — clean.")
 
-        val md = WalkthroughBuilder.build(w, evaluation = lines)
+        val md = WalkthroughBuilder.build(
+            w,
+            evaluation = listOf("**머지 가능** — clean."),
+            reviewedFileCount = 1,
+            totalFileCount = 1,
+            inlineCommentCount = 0,
+        )
 
-        val filesIdx = md.indexOf("### ② Files changed")
+        val headerIdx = md.indexOf("## Pawranoid PR overview")
+        val intentIdx = md.indexOf("PR overview text")
+        val changesIdx = md.indexOf("### 변경사항")
+        val statsIdx = md.indexOf("### 검토된 변경 사항")
+        val detailsIdx = md.indexOf("<details>")
         val evalIdx = md.indexOf("> **머지 가능**")
-        val risksIdx = md.indexOf("### ③ Risk highlights")
-        assertThat(filesIdx).isLessThan(evalIdx)
-        assertThat(evalIdx).isLessThan(risksIdx)
-    }
 
-    // --- risks (renumbered to ③) ---
-
-    @Test
-    fun `risks section omitted when empty`() {
-        val md = WalkthroughBuilder.build(emptyWalkthrough())
-
-        assertThat(md).doesNotContain("Risk highlights")
-    }
-
-    @Test
-    fun `risks section shown with severity emoji and optional location`() {
-        val w = Walkthrough(
-            intent = "x",
-            files = emptyList(),
-            risks = listOf(
-                RiskHighlight(Severity.HIGH, "인증 로직 교체", "AuthService.kt:42"),
-                RiskHighlight(Severity.MEDIUM, "외부 의존성 추가", null),
-            ),
-        )
-
-        val md = WalkthroughBuilder.build(w)
-
-        assertThat(md).contains("### ③ Risk highlights")
-        assertThat(md).contains("- 🔴 **HIGH** — 인증 로직 교체 (`AuthService.kt:42`)")
-        assertThat(md).contains("- 🟡 **MEDIUM** — 외부 의존성 추가")
+        assertThat(headerIdx).isLessThan(intentIdx)
+        assertThat(intentIdx).isLessThan(changesIdx)
+        assertThat(changesIdx).isLessThan(statsIdx)
+        assertThat(statsIdx).isLessThan(detailsIdx)
+        assertThat(detailsIdx).isLessThan(evalIdx)
     }
 
     // --- removed legacy sections ---
 
     @Test
-    fun `no Reviewed section, no Triggered footer, no Process notes heading, no horizontal rule`() {
+    fun `no legacy sections remain`() {
         val md = WalkthroughBuilder.build(emptyWalkthrough())
 
-        assertThat(md).doesNotContain("Reviewed")
-        assertThat(md).doesNotContain("Triggered by")
+        assertThat(md).doesNotContain("What changed")
+        assertThat(md).doesNotContain("Files changed")
+        assertThat(md).doesNotContain("Risk highlights")
+        assertThat(md).doesNotContain("Reviewed section")
         assertThat(md).doesNotContain("Process notes")
+        assertThat(md).doesNotContain("Triggered by")
         assertThat(md).doesNotContain("\n---")
     }
 
     private fun emptyWalkthrough() = Walkthrough(
         intent = "x",
+        changes = emptyList(),
         files = emptyList(),
-        risks = emptyList(),
     )
 }

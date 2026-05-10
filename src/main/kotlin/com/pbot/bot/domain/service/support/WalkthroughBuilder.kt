@@ -3,67 +3,89 @@ package com.pbot.bot.domain.service.support
 import com.pbot.bot.domain.model.Walkthrough
 
 /**
- * [Walkthrough] 도메인 객체를 PR 메인 conversation 탭에 게시할 markdown으로 변환한다.
+ * walkthrough + 평가 + 리뷰 통계를 합쳐 PR Review body 로 게시할 markdown 으로 변환.
  *
  * 형식:
  * ```
- * ## 🐶 Pawranoid Review
+ * ## Pawranoid PR overview
  *
- * ### ① What changed
- * <intent>
+ * <intent paragraph>
  *
- * ### ② Files changed
+ * ### 변경사항
+ * - change 1
+ * - change 2
+ *
+ * ### 검토된 변경 사항
+ * Pawranoid는 이 풀 리퀘스트에서 변경된 파일 N개 중 M개를 검토하고 K개의 댓글을 생성했습니다.
+ *
+ * <details>
+ * <summary>파일별 요약</summary>
+ *
  * | File | Type | Summary |
  * | Foo.kt | New | ... |
  *
- * > **머지 가능** — ...           (evaluation 라인이 있을 때 표 바로 아래 blockquote)
+ * </details>
+ *
+ * > **머지 가능** — ...
  * >
  * > **사이즈가 큽니다** ... — ...
- *
- * ### ③ Risk highlights      (risks가 있을 때만)
- * - 🔴 HIGH — ...
  * ```
  *
- * 표 폭을 줄이기 위해 File 컬럼은 디렉토리를 떼고 파일명만 표시.
- *
- * evaluation 은 PR 자체에 대한 결정적 평가 라인 리스트로, [PrEvaluator] 가 생성한다.
- * 항상 표시되는 머지 상태 한 줄 + 조건부 사이즈/테스트 라인.
+ * 별도 PR 대화 코멘트로 walkthrough 를 분리해 띄우지 않는다 — Copilot 식으로
+ * 한 곳(Review body)에 모여 있어야 사용자가 PR을 한 화면에서 파악하기 쉽다.
  */
 object WalkthroughBuilder {
 
     fun build(
         walkthrough: Walkthrough,
         evaluation: List<String> = emptyList(),
+        reviewedFileCount: Int = walkthrough.files.size,
+        totalFileCount: Int = walkthrough.files.size,
+        inlineCommentCount: Int = 0,
+        droppedCommentCount: Int = 0,
     ): String = buildString {
-        appendLine("## 🐶 Pawranoid Review")
+        appendLine("## Pawranoid PR overview")
         appendLine()
 
-        appendLine("### ① What changed")
         appendLine(walkthrough.intent)
-        appendLine()
 
-        appendLine("### ② Files changed")
-        appendLine("| File | Type | Summary |")
-        appendLine("|------|------|---------|")
-        walkthrough.files.forEach { file ->
-            val name = file.path.substringAfterLast('/')
-            appendLine("| `$name` | ${file.type.label} | ${file.summary} |")
+        if (walkthrough.changes.isNotEmpty()) {
+            appendLine()
+            appendLine("### 변경사항")
+            walkthrough.changes.forEach { appendLine("- $it") }
+        }
+
+        appendLine()
+        appendLine("### 검토된 변경 사항")
+        append(
+            "Pawranoid는 이 풀 리퀘스트에서 변경된 파일 ${totalFileCount}개 중 ${reviewedFileCount}개를 " +
+                "검토하고 ${inlineCommentCount}개의 댓글을 생성했습니다.",
+        )
+        if (droppedCommentCount > 0) {
+            append(" (${droppedCommentCount}개 의견은 라인 매칭 실패로 보류)")
         }
         appendLine()
 
+        if (walkthrough.files.isNotEmpty()) {
+            appendLine()
+            appendLine("<details>")
+            appendLine("<summary>파일별 요약</summary>")
+            appendLine()
+            appendLine("| File | Type | Summary |")
+            appendLine("|------|------|---------|")
+            walkthrough.files.forEach { file ->
+                val name = file.path.substringAfterLast('/')
+                appendLine("| `$name` | ${file.type.label} | ${file.summary} |")
+            }
+            appendLine()
+            appendLine("</details>")
+        }
+
         if (evaluation.isNotEmpty()) {
+            appendLine()
             evaluation.forEachIndexed { i, line ->
                 appendLine("> $line")
                 if (i < evaluation.size - 1) appendLine(">")
-            }
-            appendLine()
-        }
-
-        if (walkthrough.risks.isNotEmpty()) {
-            appendLine("### ③ Risk highlights")
-            walkthrough.risks.forEach { risk ->
-                val location = risk.location?.let { " (`$it`)" } ?: ""
-                appendLine("- ${risk.severity.emoji} **${risk.severity.name}** — ${risk.description}$location")
             }
         }
     }
